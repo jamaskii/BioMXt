@@ -1,0 +1,36 @@
+# --- 编译输出 (Executables & Libraries) ---
+bin/
+lib/
+build/
+*.exe
+*.o
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+
+# --- 编辑器与系统临时文件 ---
+.vscode/
+.idea/
+*.swp
+*.save
+.DS_Store
+Thumbs.db
+
+# --- 依赖库管理 ---
+# 只排除静态库文件，保留头文件和目录结构
+third_party/**/lib/*.a
+third_party/**/lib/*.lib
+
+# 如果以后使用 CMake，排除其生成的缓存
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# --- 日志与临时数据 ---
+*.log
+*.tmp
+temp_data/
+output_test/
