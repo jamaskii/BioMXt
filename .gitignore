@@ -1,4 +1,4 @@
-# --- ç¼–è¯‘è¾“å‡º (Executables & Libraries) ---
+# --- ±àÒëÊä³ö (Executables & Libraries) ---
 bin/
 lib/
 build/
@@ -10,7 +10,7 @@ build/
 *.dylib
 *.dll
 
-# --- ç¼–è¾‘å™¨ä¸ç³»ç»Ÿä¸´æ—¶æ–‡ä»¶ ---
+# --- ±à¼­Æ÷ÓëÏµÍ³ÁÙÊ±ÎÄ¼ş ---
 .vscode/
 .idea/
 *.swp
@@ -18,18 +18,18 @@ build/
 .DS_Store
 Thumbs.db
 
-# --- ä¾èµ–åº“ç®¡ç† ---
-# åªæ’é™¤é™æ€åº“æ–‡ä»¶ï¼Œä¿ç•™å¤´æ–‡ä»¶å’Œç›®å½•ç»“æ„
+# --- ÒÀÀµ¿â¹ÜÀí ---
+# Ö»ÅÅ³ı¾²Ì¬¿âÎÄ¼ş£¬±£ÁôÍ·ÎÄ¼şºÍÄ¿Â¼½á¹¹
 third_party/**/lib/*.a
 third_party/**/lib/*.lib
 
-# å¦‚æœä»¥åä½¿ç”¨ CMakeï¼Œæ’é™¤å…¶ç”Ÿæˆçš„ç¼“å­˜
+# Èç¹ûÒÔºóÊ¹ÓÃ CMake£¬ÅÅ³ıÆäÉú³ÉµÄ»º´æ
 cmake-build-*/
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 
-# --- æ—¥å¿—ä¸ä¸´æ—¶æ•°æ® ---
+# --- ÈÕÖ¾ÓëÁÙÊ±Êı¾İ ---
 *.log
 *.tmp
 temp_data/

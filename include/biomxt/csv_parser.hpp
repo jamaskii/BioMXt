@@ -3,6 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 
 namespace biomxt {
 
@@ -12,6 +13,6 @@ void rtrim(std::string &s);
 void trim(std::string &s);
 
 // CSV 解析
-std::vector<std::string> parse_line(const std::string& line, size_t& reserve_size, char separation = ',');
+std::vector<std::string> parse_line(const std::string& line, uint64_t& reserve_size, char separation = ',');
 
 } // namespace biomxt

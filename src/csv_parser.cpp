@@ -1,19 +1,19 @@
 #include "biomxt/csv_parser.hpp"
-#include <charconv> // C++17 提供的超快转码
+#include <charconv>
 
 namespace biomxt {
 
-    // 左去除空白：删除字符串开头的所有空白字符
+    // 左去除空白
     void ltrim(std::string &s) {
         // 找到第一个非空白字符的位置
         auto pos = std::find_if(s.begin(), s.end(), [](unsigned char c) {
-            return !std::isspace(c);  // 取反：找到第一个非空白字符
+            return !std::isspace(c);
         });
         // 从开头删除到该位置之前的所有字符（即删除所有开头空白）
         s.erase(s.begin(), pos);
     }
 
-    // 右去除空白：删除字符串末尾的所有空白字符
+    // 右去除空白
     void rtrim(std::string &s) {
         // 找到最后一个非空白字符的位置
         auto pos = std::find_if(s.rbegin(), s.rend(), [](unsigned char c) {
@@ -23,13 +23,13 @@ namespace biomxt {
         s.erase(pos, s.end());
     }
 
-    // 首尾去除空白：组合 ltrim 和 rtrim
+    // 首尾去除空白
     void trim(std::string &s) {
         ltrim(s);
         rtrim(s);
     }
 
-    std::vector<std::string> parse_line(const std::string& line, size_t& reserve_size, char separation) {
+    std::vector<std::string> parse_line(const std::string& line, uint64_t& reserve_size, char separation) {
         std::vector<std::string> cells;
         std::string cell;
         
