@@ -1,48 +1,60 @@
 # 1. 配置参数
 CXX      = g++
-CXXFLAGS = -O3 -std=c++17 -Iinclude -Ithird_party/zstd/include
-# LDFLAGS  = -Lthird_party/zstd/lib -lzstd
+CXXFLAGS = -O3 -std=c++17 -Iinclude
 
-# 2. 自动遍历 (Magic Parts)
-# 自动寻找 src 目录下所有的 .cpp 文件
+# 简单的系统检测
+ifeq ($(OS),Windows_NT)
+    # Windows 环境 (MinGW)
+    RM = if exist $(1) rmdir /s /q $(1)
+    EXE_EXT = .exe
+    MKDIR = if not exist $(1) mkdir $(1)
+    # Windows 下通常需要手动指定 Zstd 路径
+    CXXFLAGS += -Ithird_party/zstd/include
+    LDFLAGS  = -Lthird_party/zstd/lib -lzstd
+else
+    # Linux/WSL 环境
+    RM = rm -rf $(1)
+    EXE_EXT =
+    MKDIR = mkdir -p $(1)
+    # Linux 通常通过 apt 安装 libzstd-dev，系统会自动找路径
+    LDFLAGS  = -lzstd
+endif
+
+# 2. 自动遍历
 SRCS     = $(wildcard src/*.cpp)
-# 将 SRCS 中所有的 .cpp 后缀替换为 build 目录下的 .o 后缀
 OBJS     = $(patsubst src/%.cpp, build/%.o, $(SRCS))
 
-CLI_SRC = apps/cli.cpp
+CLI_SRC  = apps/cli.cpp
 TEST_SRC = tests/test.cpp
 
-# 3. 目标定义
+# 3. 目标定义 (加入后缀变量)
 LIB_TARGET  = lib/libbiomxt.a
-CLI_TARGET  = bin/biomxt.exe
-TEST_TARGET = bin/test.exe
+CLI_TARGET  = bin/biomxt$(EXE_EXT)
+TEST_TARGET = bin/test$(EXE_EXT)
 
 # 4. 任务规则
-all: $(LIB_TARGET) $(CLI_TARGET) test_run
+all: $(LIB_TARGET) $(CLI_TARGET) test
 
-# 自动编译：任何 build/*.o 都依赖对应的 src/*.cpp
+# 使用 $(MKDIR) 变量，确保跨平台兼容
 build/%.o: src/%.cpp
-	@if not exist build mkdir build
+	@$(call MKDIR, build)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# 打包静态库：依赖所有的 OBJS
 $(LIB_TARGET): $(OBJS)
-	@if not exist lib mkdir lib
+	@$(call MKDIR, lib)
 	ar rcs $@ $(OBJS)
 
-# 编译 CLI 工具
 cli: $(LIB_TARGET)
-	@if not exist bin mkdir bin
+	@$(call MKDIR, bin)
 	$(CXX) $(CXXFLAGS) $(CLI_SRC) $(LIB_TARGET) -o $(CLI_TARGET) $(LDFLAGS)
 
-# 编译并运行测试
 test: $(LIB_TARGET)
-	@if not exist bin mkdir bin
+	@$(call MKDIR, bin)
 	$(CXX) $(CXXFLAGS) $(TEST_SRC) $(LIB_TARGET) -o $(TEST_TARGET) $(LDFLAGS)
 	@echo --- Running Tests ---
-	@$(TEST_TARGET)
+	@./$(TEST_TARGET)
 
 clean:
-	if exist build rmdir /s /q build
-	if exist bin rmdir /s /q bin
-	if exist lib rmdir /s /q lib
+	@$(call RM, build)
+	@$(call RM, bin)
+	@$(call RM, lib)
