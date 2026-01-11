@@ -32,20 +32,18 @@ namespace biomxt {
     std::vector<std::string> parse_line(const std::string& line, uint64_t& reserve_size, char separation) {
         std::vector<std::string> cells;
         std::string cell;
+
+        if (line.empty()) return cells;
         
         // 性能优化, 预分配内存
         cells.reserve(reserve_size==0 ? 10 : reserve_size);
 
-        // 1. 先确定真正的逻辑结尾，排除掉 \r 或 \n
-        size_t end_pos = line.size();
-        while (end_pos > 0 && (line[end_pos - 1] == '\r' || line[end_pos - 1] == '\n')) {
-            end_pos--;
-        }
+        uint64_t end_pos = line.size();
 
         // 状态: 当前是否处于双引号内
         bool in_quote = false;
 
-        for (size_t i = 0; i < end_pos; ++i) {
+        for (uint64_t i = 0; i < end_pos; ++i) {
             
             // 检测双引号转义：当前字符是"，且下一个字符也是"
             if (line[i] == '"') {
@@ -60,7 +58,7 @@ namespace biomxt {
                 } else {
                     in_quote = false;
                 }
-            } else if (line[i] == ',' && !in_quote) {
+            } else if (line[i] == separation && !in_quote) {
                 // 逗号分隔符, 且不在双引号内
                 cells.push_back(std::move(cell));
                 cell.clear();

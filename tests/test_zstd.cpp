@@ -4,6 +4,21 @@
 #include <numeric>
 #include <zstd.h>
 #include <cstdint>
+#include <cstring>
+
+// Shuffle 函数：将 float 数组的字节重新排列
+// 假设输入是 [f1, f2, f3, f4]
+// 每个 f 由 4 个字节组成: [b0, b1, b2, b3]
+// Shuffle 后: [所有数字的 b0, 所有数字的 b1, 所有数字的 b2, 所有数字的 b3]
+void shuffle_floats(const float* src, uint8_t* dest, size_t count) {
+    const uint8_t* src_bytes = reinterpret_cast<const uint8_t*>(src);
+    for (size_t i = 0; i < count; ++i) {
+        dest[i]             = src_bytes[i * 4 + 0];
+        dest[i + count]     = src_bytes[i * 4 + 1];
+        dest[i + count * 2] = src_bytes[i * 4 + 2];
+        dest[i + count * 3] = src_bytes[i * 4 + 3];
+    }
+}
 
 int main() {
     const size_t num_elements = 50000;
@@ -25,36 +40,36 @@ int main() {
     }
 
     size_t src_size = data.size() * sizeof(float);
-    std::cout << "Original Size: " << src_size / 1024.0 << " KB" << std::endl;
-
-    // 2. Zstd 压缩测试
     size_t const max_dst_size = ZSTD_compressBound(src_size);
-    std::vector<char> compressed_buffer(max_dst_size);
+    std::cout << "Original Size: " << src_size / 1024.0 << " KB\n" << std::endl;
 
-    size_t total_compressed_size = 0;
+    // 2. 准备 Shuffle 后的数据
+    std::vector<uint8_t> shuffled_data(src_size);
+    shuffle_floats(data.data(), shuffled_data.data(), num_elements);
 
-    std::cout << "Running " << rounds << " rounds of compression..." << std::endl;
-    
-    for (int i = 0; i < rounds; ++i) {
-        // 使用压缩级别 3 (Zstd 默认建议)
-        size_t c_size = ZSTD_compress(compressed_buffer.data(), max_dst_size, 
-                                      data.data(), src_size, 3);
-        
-        if (ZSTD_isError(c_size)) {
-            std::cerr << "Zstd Error: " << ZSTD_getErrorName(c_size) << std::endl;
-            return 1;
+    // 3. 测试函数：用于重复执行压缩过程
+    auto run_test = [&](const void* input_ptr, const std::string& label) {
+        std::vector<char> compressed_buffer(max_dst_size);
+        size_t total_size = 0;
+
+        for (int i = 0; i < rounds; ++i) {
+            size_t c_size = ZSTD_compress(compressed_buffer.data(), max_dst_size, 
+                                          input_ptr, src_size, 3);
+            if (ZSTD_isError(c_size)) return (size_t)0;
+            total_size += c_size;
         }
-        total_compressed_size += c_size;
-    }
 
-    // 3. 统计结果
-    double avg_compressed_size = (double)total_compressed_size / rounds;
-    double compression_ratio = (double)src_size / avg_compressed_size;
+        double avg = (double)total_size / rounds;
+        std::cout << "[" << label << "]" << std::endl;
+        std::cout << "  Avg Compressed: " << avg / 1024.0 << " KB" << std::endl;
+        std::cout << "  Ratio: " << (double)src_size / avg << "x" << std::endl;
+        std::cout << "  Savings: " << (1.0 - (avg / src_size)) * 100.0 << "%\n" << std::endl;
+        return (size_t)avg;
+    };
 
-    std::cout << "--- Results ---" << std::endl;
-    std::cout << "Average Compressed Size: " << avg_compressed_size / 1024.0 << " KB" << std::endl;
-    std::cout << "Compression Ratio: " << compression_ratio << "x" << std::endl;
-    std::cout << "Space Saving: " << (1.0 - (avg_compressed_size / src_size)) * 100.0 << "%" << std::endl;
+    // 运行对比测试
+    run_test(data.data(), "Normal Zstd");
+    run_test(shuffled_data.data(), "Shuffle + Zstd");
 
     return 0;
 }

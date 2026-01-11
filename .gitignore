@@ -34,3 +34,6 @@ cmake_install.cmake
 *.tmp
 temp_data/
 output_test/
+
+# --- ²âÊÔÊı¾İ ---
+test_data/

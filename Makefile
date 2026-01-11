@@ -1,6 +1,6 @@
 #### Compiler and flags ####
 CXX      = g++
-CXXFLAGS = -O3 -std=c++17 -Iinclude
+CXXFLAGS = -O3 -std=c++17 -Iinclude -MMD -MP
 
 #### System type detection ####
 ifeq ($(OS),Windows_NT)
@@ -40,9 +40,13 @@ TEST_CSV_TARGET = bin/test$(EXE_EXT)
 TEST_ZSTD_SRC = tests/test_zstd.cpp
 TEST_ZSTD_TARGET = bin/test_zstd$(EXE_EXT)
 
+# conv test
+TEST_CONV_SRC = tests/test_conv.cpp
+TEST_CONV_TARGET = bin/test_conv$(EXE_EXT)
+
 #### Task rules ####
-.PHONY: all cli test_csv test_zstd clean
-all: $(LIB_TARGET) $(CLI_TARGET) $(TEST_CSV_TARGET) $(TEST_ZSTD_TARGET)
+.PHONY: all cli test_csv test_zstd test_conv clean
+all: $(LIB_TARGET) $(CLI_TARGET)
 
 # Using $(MKDIR) variable to ensure cross-platform compatibility
 build/%.o: src/%.cpp
@@ -68,6 +72,12 @@ test_zstd:
 	$(CXX) $(CXXFLAGS) $(TEST_ZSTD_SRC) -o $(TEST_ZSTD_TARGET) $(LDFLAGS)
 	@echo --- Running Zstd Performance Test ---
 	@./$(TEST_ZSTD_TARGET)
+
+test_conv: $(LIB_TARGET)
+	@$(call MKDIR, bin)
+	$(CXX) $(CXXFLAGS) $(TEST_CONV_SRC) $(LIB_TARGET) -o $(TEST_CONV_TARGET) $(LDFLAGS)
+	@echo --- Running Conv Tests ---
+	@./$(TEST_CONV_TARGET)
 
 clean:
 	@$(call RM, build)
