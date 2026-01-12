@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <charconv>
+
 
 namespace biomxt {
 
@@ -13,7 +15,7 @@ namespace biomxt {
     void trim(std::string &s);
 
     // CSV 解析
-    std::vector<std::string> parse_line(const std::string& line, uint64_t& reserve_size, char separation = ',');
+    std::vector<std::string_view> parse_line(const std::string& line, uint64_t& reserve_size, char separation = ',');
 
     inline float fast_atof(const char* p) {
         if (!p || !*p) return 0.0f;
@@ -68,6 +70,11 @@ namespace biomxt {
         }
 
         return neg ? -res : res;
+    }
+
+    inline float fast_atof(std::string_view sv) {
+        if (sv.empty()) return 0.0f;
+        return fast_atof(sv.data());
     }
 
 } // namespace biomxt

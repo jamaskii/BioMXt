@@ -29,14 +29,14 @@ namespace biomxt {
         rtrim(s);
     }
 
-    std::vector<std::string> parse_line(const std::string& line, uint64_t& reserve_size, char separation) {
-        std::vector<std::string> cells;
+    std::vector<std::string_view> parse_line(const std::string& line, uint64_t& reserve_size, char separation) {
+        std::vector<std::string_view> cells;
         std::string cell;
 
         if (line.empty()) return cells;
         
         // 性能优化, 预分配内存
-        cells.reserve(reserve_size==0 ? 10 : reserve_size);
+        cells.reserve(reserve_size==0 ? 100 : reserve_size);
 
         uint64_t end_pos = line.size();
 

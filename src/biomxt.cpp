@@ -71,8 +71,8 @@ biomxt::FileHeader csv_to_bmxt(
         uint64_t input_file_line = 1;
         uint64_t col_counts = 0;
         uint64_t row_counts = 0;
-        std::vector<std::string> rownames;
-        std::vector<std::string> colnames;
+        std::vector<std::string_view> rownames;
+        std::vector<std::string_view> colnames;
         uint64_t reserve_size = 0;
         std::vector<float> chunk;
         chunk.reserve(chunk_size);
@@ -92,7 +92,7 @@ biomxt::FileHeader csv_to_bmxt(
             }
 
             // Parse line
-            std::vector<std::string> cells = biomxt::parse_line(line, reserve_size);
+            std::vector<std::string_view> cells = biomxt::parse_line(line, reserve_size);
 
             // Colnames line
             if (col_counts == 0) {
@@ -137,7 +137,7 @@ biomxt::FileHeader csv_to_bmxt(
                     
                     // Push cells to chunk
                     for (uint64_t i=0; i<push_size; ++i) {
-                        chunk.push_back(biomxt::fast_atof(cells[cell_chunked+i].c_str()));
+                        chunk.push_back(biomxt::fast_atof(cells[cell_chunked+i]));
                     }
                     cell_chunked += push_size;
                 }
@@ -170,13 +170,13 @@ biomxt::FileHeader csv_to_bmxt(
 
         // Write names to output file
         std::vector<biomxt::IndexEntry> names_indices;
-        for (const std::string& name : colnames) {
+        for (const std::string_view& name : colnames) {
             names_indices.push_back({static_cast<uint64_t>(out_file.tellp()), (uint32_t)name.size()});
-            out_file.write(name.c_str(), name.size());
+            out_file.write(name.data(), name.size());
         }
-        for (const std::string& name : rownames) {
+        for (const std::string_view& name : rownames) {
             names_indices.push_back({static_cast<uint64_t>(out_file.tellp()), (uint32_t)name.size()});
-            out_file.write(name.c_str(), name.size());
+            out_file.write(name.data(), name.size());
         }
 
         // Write chunk index table to output file
