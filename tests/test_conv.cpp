@@ -18,18 +18,6 @@
 #define TEST_EPOCHES                3
 
 
-void print_bmxt_header(const biomxt::FileHeader& header) {
-    std::cout << "Magic: " << std::string_view(header.magic, 4) << std::endl;
-    std::cout << "Version: " << header.version << std::endl;
-    std::cout << "DataType: " << biomxt::dtype_to_string(header.dtype) << std::endl;
-    std::cout << "CompressAlgo: " << biomxt::algo_to_string(header.algo) << std::endl;
-    std::cout << "NRow: " << header.nrow << std::endl;
-    std::cout << "NCol: " << header.ncol << std::endl;
-    std::cout << "ChunkSize: " << header.chunk_size << std::endl;
-    std::cout << "ChunkTableOffset: " << header.chunk_table_offset << std::endl;
-    std::cout << "NamesTableOffset: " << header.names_table_offset << std::endl;
-}
-
 uint64_t get_timestamp() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }

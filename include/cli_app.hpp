@@ -24,7 +24,7 @@ namespace cliapp {
             const std::string default_value;
             const bool required;
             const bool has_value;
-            static Option option(std::string name, std::string short_name, std::string description, std::string default_value) {
+            static Option option_with_value(std::string name, std::string short_name, std::string description, std::string default_value) {
                 return Option(name, short_name, description, default_value, false, true);
             }
 
@@ -36,6 +36,7 @@ namespace cliapp {
                 return Option(name, short_name, description, "", false, false);
             }
             std::string get_value() { return value; }
+            bool is_provided() { return provided; }
         private:
             Option(std::string name, std::string short_name, std::string description, std::string default_value, bool required, bool has_value)
                 : name(name), short_name(short_name), description(description), default_value(default_value), required(required), has_value(has_value) {}
@@ -53,6 +54,7 @@ namespace cliapp {
             Argument(std::string name, std::string description)
                 : name(name), description(description) {}
             std::string get_value() { return value; }
+            bool is_provided() { return provided; }
     };
 
     class Command {
@@ -68,32 +70,25 @@ namespace cliapp {
                 : name(name), description(description) {}
             Command &add_argument(Argument argument) { this->arguments.push_back(argument); return *this; }
             Command &add_option(Option option) { this->options.push_back(option); return *this; }
-            Result find_provided_argument(std::string name) {
-                Result result;
-                for (Argument arg : this->arguments) {
-                    if (arg.name == name && arg.provided) {
-                        result.success = true;
-                        result.value = arg.value;
-                        return result;
+            Argument& find_argument(std::string name) {
+                for (Argument& arg : this->arguments) {
+                    if (arg.name == name) {
+                        return arg;
                     }
                 }
-                return result;
+                throw std::runtime_error("Argument not found");
             }
 
-            Result find_provided_option(std::string name) {
-                Result result;
-                for (Option opt : this->options) {
-                    if ((opt.name == name || opt.short_name == name) && opt.provided) {
-                        result.success = true;
-                        result.value = opt.value;
-                        return result;
+            Option& find_option(std::string name, std::string short_name) {
+                for (Option& opt : this->options) {
+                    if (opt.name == name || opt.short_name == short_name) {
+                        return opt;
                     }
                 }
-                return result;
+                throw std::runtime_error("Option not found");
             }
 
             void print_help(std::string app_name) {
-                std::cout << "Description: " << description << std::endl;
                 std::cout << "Usage: " << app_name << " " << name;
                 for (Argument arg : arguments) {
                     std::cout << " <" << arg.name << ">";
@@ -102,7 +97,7 @@ namespace cliapp {
                 
                 std::cout << "Options:" << std::endl;
                 for (Option opt : options) {
-                    std::cout << "  " << opt.name << "," << opt.short_name << "\t" << opt.description;
+                    std::cout << "  " << opt.name << ", " << opt.short_name << "\t" << opt.description;
                     if (opt.required) {
                         std::cout << " (required)";
                     }
@@ -112,6 +107,8 @@ namespace cliapp {
                     std::cout << std::endl;
                 }
             }
+
+            bool is_provided() { return provided; }
 
     };
 
@@ -129,15 +126,15 @@ namespace cliapp {
             
             App(std::string name, std::string version, std::string description)
                 : name(name), version(version), description(description) {}
-            App &add_option(Option option) { this->options.push_back(option); return *this; }
-            App &add_command(Command *command) { this->commands.push_back(command); return *this; }
-            bool parse(int argc, char *argv[]) {
+            App& add_option(Option option) { this->options.push_back(option); return *this; }
+            App& add_command(Command* command) { this->commands.push_back(command); return *this; }
+            bool parse(int argc, char* argv[]) {
                 
                 // Clear the provided flag of commands and options
-                for (auto &command : this->commands) {
+                for (Command* command : this->commands) {
                     command->provided = false;
                 }
-                for (auto &option : this->options) {
+                for (Option& option : this->options) {
                     option.provided = false;
                 }
 
@@ -151,10 +148,11 @@ namespace cliapp {
                 }
 
                 // The second argv is the command name
-                Command *user_command = nullptr;
-                for (auto &command : this->commands) {
+                Command* user_command = nullptr;
+                for (Command* command : this->commands) {
                     if (command->name == argv[1]) {
                         user_command = command;
+                        user_command->provided = true;
                         break;
                     }
                 }
@@ -172,7 +170,7 @@ namespace cliapp {
                     for (size_t i = 1; i < argc; i++) {
                         // Try to match option name or short name
                         bool argv_vaild = false;
-                        for (auto &option : this->options) {
+                        for (Option& option : this->options) {
                             if (option.name == argv[i] || option.short_name == argv[i]) {
                                 if (option.has_value) {
                                     // Current option requires a value, but the next argv is an option or the end of argv
@@ -199,7 +197,7 @@ namespace cliapp {
 
                     // Scan complete, check if required options are provided, and at least one option is provided since now is no command mode.
                     bool at_least_one_option_provided = false;
-                    for (auto &option : this->options) {
+                    for (Option& option : this->options) {
                         if (!option.provided) {
                             if (option.required) {
                                 std::cerr << "Error: Option " << option.name << " is required" << std::endl;
@@ -225,7 +223,7 @@ namespace cliapp {
                     for (size_t i = 2; i < argc; i++) {
                         // Option
                         if (argv[i][0] == '-') {
-                            for (Option &option : user_command->options) {
+                            for (Option& option : user_command->options) {
                                 if (option.name == argv[i] || option.short_name == argv[i]) {
                                     option.provided = true;
                                     if (option.has_value) {
@@ -244,7 +242,7 @@ namespace cliapp {
                         // Argument
                         } else {
                             bool argv_used = false;
-                            for (Argument &argument : user_command->arguments) {
+                            for (Argument& argument : user_command->arguments) {
                                 if (!argument.provided) {
                                     argument.value = argv[i];
                                     argument.provided = true;
@@ -260,21 +258,21 @@ namespace cliapp {
                     }
 
                     // Check if help option is provided
-                    for (Option &option : user_command->options) {
+                    for (const Option& option : user_command->options) {
                         if (option.provided && option.name == "--help") {
                             return true;
                         }
                     }
 
                     // Scan complete, check if required arguments and options are provided
-                    for (Argument &argument : user_command->arguments) {
+                    for (const Argument& argument : user_command->arguments) {
                         if (!argument.provided) {
                             std::cerr << "Error: Argument <" << argument.name << "> is required" << std::endl;
                             user_command->print_help(name);
                             return false;
                         }
                     }
-                    for (Option &option : user_command->options) {
+                    for (const Option& option : user_command->options) {
                         if (option.required && !option.provided) {
                             std::cerr << "Error: Option [" << option.name << "] is required" << std::endl;
                             user_command->print_help(name);
@@ -290,31 +288,24 @@ namespace cliapp {
             void print_help() {
                 std::cout << "Usage: " << name << " <command> [arguments] [options]\n\n";
                 std::cout << "Commands:\n";
-                for (Command *cmd : commands) {
+                for (const Command* cmd : commands) {
                     std::cout << "  " << cmd->name << "\t" << cmd->description << std::endl;
                 }
                 std::cout << "\nOptions:\n";
-                for (Option &opt : options) {
-                    std::cout << "  " << opt.name << "," << opt.short_name << "\t" << opt.description << std::endl;
+                for (const Option& opt : options) {
+                    std::cout << "  " << opt.name << ", " << opt.short_name << "\t" << opt.description << std::endl;
                 }
             }
 
-            bool got_command(Command &command) {
-                for (Command *cmd : this->commands) {
-                    if (cmd->name == command.name) {
-                        return true;
+            Option& find_option(std::string name, std::string short_name) {
+                for (Option& opt : this->options) {
+                    if (opt.name == name || opt.short_name == short_name) {
+                        return opt;
                     }
                 }
-                return false;
+                throw std::runtime_error("Option not found");
             }
 
-            std::vector<Option> get_provided_options() {
-                std::vector<Option> options;
-                for (Option& opt : this->options) {
-                    if (opt.provided) options.push_back(opt);
-                }
-                return options;
-            }
     };
 
     

@@ -11,113 +11,11 @@
 
 namespace fs = std::filesystem;
 
-// // 修正后的 App 类
-// class App
-// {
-// public:
-//     // 成员变量声明（调整顺序，与初始化列表保持一致，修正 argv 类型）
-//     std::string name;
-//     std::vector<Command> commands;
-//     int argc;
-//     char **argv; // 修正：改为 char**，存储命令行参数指针
-
-//     // 构造函数（修正初始化列表，保持与成员声明顺序一致）
-//     App(const std::string &app_name,
-//         const std::vector<Command> &app_commands,
-//         int app_argc, // 调整参数顺序：先 argc 后 argv，更符合习惯
-//         char *app_argv[])
-//         : name(app_name),
-//           commands(app_commands),
-//           argc(app_argc),
-//           argv(app_argv) // 合法：指针赋值，传递命令行参数数组地址
-//     {
-//     }
-
-//     // 打印帮助信息（修正：遍历使用 const 引用）
-//     void print_help() const
-//     { // 补充 const：该函数不修改 App 类的任何成员变量
-//         std::cout << "Usage: " << name << " <command> [arguments] [options]\n\n";
-//         std::cout << "Commands:\n";
-
-//         // 修正：使用 const Command&，避免修改，提升安全性
-//         for (const Command &cmd : commands)
-//         {
-//             std::cout << "  " << cmd.name << "\n";
-//             cmd.print_help(4); // 调整缩进为 4，格式化输出更美观
-//         }
-//     }
-
-//     bool get_command(Command &cmd) const
-//     {
-//         if (argc < 2)
-//         {
-//             return false;
-//         }
-//         std::string cmd_name = argv[1];
-//         for (const Command &c : commands)
-//         {
-//             if (c.name == cmd_name)
-//             {
-//                 cmd = c;
-//                 return true;
-//             }
-//         }
-//         return false;
-//     }
-// };
-
-// class Command
-// {
-// public:
-//     std::string name;
-//     std::vector<Argument> args;
-//     std::vector<Option> options;
-
-//     Command(const std::string &name, const std::vector<Argument> &args, const std::vector<Option> &options) : name(name), args(args), options(options) {}
-
-//     void print_help(const size_t indent = 2) const
-//     {
-//         std::cout << std::string(indent, ' ') << "Usage: biomxt " << name << " [arguments] [options]\n\n";
-//         std::cout << std::string(indent, ' ') << "Arguments:\n";
-//         for (const auto &arg : args)
-//         {
-//             std::cout << std::string(indent, ' ') << "  " << arg.name << "  " << arg.desc << "\n";
-//         }
-//         std::cout << std::string(indent, ' ') << "Options:\n";
-//         for (const auto &opt : options)
-//         {
-//             std::cout << std::string(indent, ' ') << "  " << opt.name << "  " << opt.desc << "\n";
-//         }
-//     }
-// };
-
-// class Argument
-// {
-// public:
-//     std::string name;
-//     std::string value;
-//     std::string desc;
-
-//     Argument(const std::string &name, const std::string &desc) : name(name), desc(desc) {}
-// };
-
-// class Option
-// {
-// public:
-//     std::string name;
-//     char short_name;
-//     std::string value;
-//     std::string desc;
-
-//     Option(const std::string &name, char short_name, const std::string &value, const std::string &desc) : name(name), short_name(short_name), value(value), desc(desc) {}
-// };
-
-
 
 // 核心转换逻辑封装
-int run_convert(std::string input, std::string output, uint32_t chunk_size, char sep, biomxt::DataType dtype, biomxt::CompressAlgo algo, bool first_column_as_rownames)
+bool convert_csv_bmxt(std::string input, std::string output, uint32_t chunk_size, char sep, biomxt::DataType dtype, biomxt::CompressAlgo algo, bool first_column_as_rownames)
 {
-    std::cout << "---- BioMXt converter ----" << std::endl;
+    // Print params
     std::cout << "Input: " << input << std::endl;
     std::cout << "Output: " << output << std::endl;
     std::cout << "Chunk size: " << chunk_size << std::endl;
@@ -134,7 +32,7 @@ int run_convert(std::string input, std::string output, uint32_t chunk_size, char
     if (!error.empty())
     {
         std::cerr << "Error: " << error << std::endl;
-        return 1;
+        return false;
     }
     for (const std::string &warn : warnings)
     {
@@ -142,58 +40,84 @@ int run_convert(std::string input, std::string output, uint32_t chunk_size, char
     }
 
     std::cout << "Row count: " << header.nrow << std::endl;
-    std::cout << "Col count: " << header.ncol << std::endl;
+    std::cout << "Col count: " << header.ncolumn << std::endl;
 
     std::cout << "Conversion completed successfully." << std::endl;
-    return 0;
+    return true;
 }
 
 int main(int argc, char *argv[])
 {
-    
-    cliapp::Command convert = cliapp::Command("convert", "Convert CSV/TSV to BioMXt format")
+    // Build CLI app
+    cliapp::Command bmxt = cliapp::Command("bmxt", "\tConvert CSV/TSV to BioMXt format")
         .add_argument(cliapp::Argument("input", "Input file path"))
-        .add_option(cliapp::Option::option("--output", "-o", "Output file path", ""))
-        .add_option(cliapp::Option::option("--chunk-size", "-c", "Chunk size, default: 50k", "50000"))
-        .add_option(cliapp::Option::option("--algorithm", "-a", "Compression algorithm: zstd(default), gzip, lz4", "zstd"))
-        .add_option(cliapp::Option::option("--separator", "-s", "Separator: ',' or '\\t'. Detect by file extension if not specified, and comma as default if detect failed.", ","))
-        .add_option(cliapp::Option::option("--data-type", "-t", "Data type: int16, int32, int64, float32(default), float64", "float32"))
+        .add_option(cliapp::Option::option_with_value("--output", "-o", "Output file path", ""))
+        .add_option(cliapp::Option::option_with_value("--chunk-size", "-c", "Chunk size, default: 50k", "50000"))
+        .add_option(cliapp::Option::option_with_value("--algorithm", "-a", "Compression algorithm: zstd(default), gzip, lz4", "zstd"))
+        .add_option(cliapp::Option::option_with_value("--separator", "-s", "Separator: ',' or '\\t'. Detect by file extension if not specified, and comma as default if detect failed.", ","))
+        .add_option(cliapp::Option::option_with_value("--data-type", "-t", "Data type: int16, int32, int64, float32(default), float64", "float32"))
         .add_option(cliapp::Option::option_without_value("--first-column-as-rownames", "-r", "First column as rownames"))
         .add_option(cliapp::Option::option_without_value("--overwrite", "-w", "Overwrite output file if exists"));
+
+    cliapp::Command dump = cliapp::Command("dump", "\tDump BioMXt file to CSV/TSV format")
+        .add_argument(cliapp::Argument("input", "Input file path"))
+        .add_option(cliapp::Option::option_with_value("--output", "-o", "Output file path", ""))
+        .add_option(cliapp::Option::option_with_value("--separator", "-s", "Separator: ',' or '\\t'. default: comma", ","))
+        .add_option(cliapp::Option::option_without_value("--overwrite", "-w", "Overwrite output file if exists"));
+
+    cliapp::Command cells = cliapp::Command("cells", "\tRead cells from BioMXt file")
+        .add_argument(cliapp::Argument("input", "Input file path"))
+        .add_option(cliapp::Option::option_with_value("--row-ids", "-r", "\t\tRows match by indices to be read, separated by comma, default or empty: all", ""))
+        .add_option(cliapp::Option::option_with_value("--row-names", "-R", "\tRows match by indices to be read, separated by comma, default or empty: all", ""))
+        .add_option(cliapp::Option::option_with_value("--col-ids", "-c", "\t\tColumns match by indices to be read, separated by comma, default or empty: all", ""))
+        .add_option(cliapp::Option::option_with_value("--col-names", "-C", "\tColumns match by indices to be read, separated by comma, default or empty: all", ""))
+        .add_option(cliapp::Option::option_without_value("--show-row-ids", "-sri", "\tShow row indices"))
+        .add_option(cliapp::Option::option_without_value("--show-row-names", "-srn", "\tShow row names"))
+        .add_option(cliapp::Option::option_without_value("--show-column-ids", "-sci", "Show column indices"))
+        .add_option(cliapp::Option::option_without_value("--show-column-names", "-scn", "Show column names"));
+
+    cliapp::Command header = cliapp::Command("header", "Read header from BioMXt file")
+        .add_argument(cliapp::Argument("input", "Input file path"));
+
     cliapp::App app = cliapp::App("biomxt", "0.1.0", "Lite maxtrix format for bioinformatics")
         .add_option(cliapp::Option::option_without_value("--help", "-h", "Print help message"))
         .add_option(cliapp::Option::option_without_value("--version", "-v", "Print version"))
-        .add_command(&convert);
+        .add_command(&bmxt)
+        .add_command(&dump)
+        .add_command(&cells)
+        .add_command(&header);
 
+    // Check if CLI usage is valid
     if(!app.parse(argc, argv)) return 1;
 
-    if (app.got_command(convert)) { 
+    // Match convert command first
+    if (bmxt.is_provided()) { 
         // Check if input file exists
-        cliapp::Result input = convert.find_provided_argument("input");
-        if (!input.success) {
+        cliapp::Argument input = bmxt.find_argument("input");
+        if (!input.is_provided()) {
             std::cerr << "Error: Input file path is required." << std::endl;
             return 1;
         }
-        if (!std::filesystem::exists(input.value)) {
-            std::cerr << "Error: Input file [" << input.value << "] does not exist." << std::endl;
+        if (!std::filesystem::exists(input.get_value())) {
+            std::cerr << "Error: Input file [" << input.get_value() << "] does not exist." << std::endl;
             return 1;
         }
 
         // Check output file
-        cliapp::Result output = convert.find_provided_option("--output");
-        if (!output.success) {
+        cliapp::Option output_opt = bmxt.find_option("--output", "-o");
+        std::string output = output_opt.get_value();
+        if (!output_opt.is_provided()) {
             // Change output file extension to .bmxt if not specified
-            output.value = fs::path(input.value).replace_extension(".bmxt").string();
+            output = fs::path(input.get_value()).replace_extension(".bmxt").string();
         }
-        if (std::filesystem::exists(output.value)) {
-            cliapp::Result overwrite = convert.find_provided_option("--overwrite");
-            if (!overwrite.success) {
+        if (std::filesystem::exists(output)) {
+            if (!bmxt.find_option("--overwrite", "-w").is_provided()) {
                 std::cerr << "Error: Output file already exists." << std::endl;
                 return 1;
             }
         }
-        if (!std::filesystem::exists(fs::path(output.value).parent_path())) {
-            if (!std::filesystem::create_directories(fs::path(output.value).parent_path())) {
+        if (!std::filesystem::exists(fs::path(output).parent_path())) {
+            if (!std::filesystem::create_directories(fs::path(output).parent_path())) {
                 std::cerr << "Error: Failed to create output directory." << std::endl;
                 return 1;
             }
@@ -201,16 +125,16 @@ int main(int argc, char *argv[])
 
         // Confirm separator
         char sep = ',';
-        cliapp::Result sep_opt = convert.find_provided_option("--separator");
-        if (sep_opt.success) {
-            if (sep_opt.value == ",") sep = ',';
-            else if (sep_opt.value == "\\t") sep = '\t';
+        cliapp::Option sep_opt = bmxt.find_option("--separator", "-s");
+        if (sep_opt.is_provided()) {
+            if (sep_opt.get_value() == ",") sep = ',';
+            else if (sep_opt.get_value() == "\\t") sep = '\t';
             else {
                 std::cerr << "Warning: Invalid separator, use comma as default." << std::endl;
                 sep = ',';
             }
         } else {
-            std::string ext = fs::path(input.value).extension().string();
+            std::string ext = fs::path(input.get_value()).extension().string();
             if (ext == ".tsv" || ext == ".TSV") {
                 sep = '\t';
             }
@@ -220,42 +144,55 @@ int main(int argc, char *argv[])
         }
 
         // Confirm data type
-        biomxt::DataType dtype = biomxt::string_to_dtype(convert.find_provided_option("--data-type").value);
+        biomxt::DataType dtype = biomxt::DataType::FLOAT32;
+        cliapp::Option dtype_opt = bmxt.find_option("--data-type", "-t");
+        if (dtype_opt.is_provided()) {
+            dtype = biomxt::string_to_dtype(dtype_opt.get_value());
+        }
 
         // Confirm compression algorithm
-        biomxt::CompressAlgo algo = biomxt::string_to_algo(convert.find_provided_option("--algorithm").value);
+        biomxt::CompressAlgo algo = biomxt::CompressAlgo::ZSTD;
+        cliapp::Option algo_opt = bmxt.find_option("--algorithm", "-a");
+        if (algo_opt.is_provided()) {
+            algo = biomxt::string_to_algo(algo_opt.get_value());
+        }
 
         // Confirm first column as rownames
-        bool first_column_as_rownames = convert.find_provided_option("--first-column-as-rownames").success;
+        bool first_column_as_rownames = bmxt.find_option("--first-column-as-rownames", "-r").is_provided();
         
         // Confirm chunk size
-        cliapp::Result chunk_size_str = convert.find_provided_option("--chunk-size");
-        if (!chunk_size_str.success) {
-            chunk_size_str.value = "50000";
+        uint32_t chunk_size = 50000;
+        cliapp::Option chunk_size_opt = bmxt.find_option("--chunk-size", "-c");
+        if (chunk_size_opt.is_provided()) {
+            chunk_size = std::stoul(chunk_size_opt.get_value());
         }
-        uint32_t chunk_size = std::stoul(chunk_size_str.value);
-        if (chunk_size == 0) {
-            std::cerr << "Error: Invalid chunk size." << std::endl;
+        
+        // Run conversion
+        return convert_csv_bmxt(input.get_value(), output, chunk_size, sep, dtype, algo, first_column_as_rownames) ? 0 : 1;
+
+    } else if (header.is_provided()) {
+        cliapp::Argument input = header.find_argument("input");
+
+        // Open input file
+        try {
+            biomxt::BiomxtFile bmxt = biomxt::BiomxtFile(input.get_value());
+            biomxt::print_bmxt_header(bmxt.get_header());
+            bmxt.close();
+        } catch (const std::exception& e) {
+            std::cerr << "Error: Failed to open input file [" << input.get_value() << "]." << std::endl;
             return 1;
         }
-
-        // Run conversion
-        return run_convert(input.value, output.value, chunk_size, sep, dtype, algo, first_column_as_rownames);
-
     }
 
-    for (cliapp::Option &opt : app.get_provided_options())
-    {
-        if (opt.name == "--help" || opt.short_name == "-h")
-        {
-            app.print_help();
-            return 0;
-        }
-        else if (opt.name == "--version" || opt.short_name == "-v")
-        {
-            std::cout << app.version << std::endl;
-            return 0;
-        }
+    // No command provided, check if option provided
+    if (app.find_option("--help", "-h").is_provided()) {
+        app.print_help();
+        return 0;
+    }
+
+    if (app.find_option("--version", "-v").is_provided()) {
+        std::cout << app.version << std::endl;
+        return 0;
     }
 
     return 0;
