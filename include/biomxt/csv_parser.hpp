@@ -11,7 +11,7 @@
 namespace biomxt {
 
     // CSV 解析
-    std::vector<std::string_view> parse_line(const std::string& line, uint64_t& reserve_size, char separation = ',');
+    std::vector<std::string> parse_line(const std::string& line, uint64_t& reserve_size, char separation = ',');
 
     inline float fast_atof(std::string_view sv) {
         if (sv.empty()) return 0.0f;

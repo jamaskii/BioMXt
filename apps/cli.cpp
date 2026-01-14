@@ -176,7 +176,14 @@ int main(int argc, char *argv[])
         // Open input file
         try {
             biomxt::BiomxtFile bmxt = biomxt::BiomxtFile(input.get_value());
-            biomxt::print_bmxt_header(bmxt.get_header());
+            biomxt::FileHeader header = bmxt.get_header();
+            biomxt::print_bmxt_header(header);
+
+            std::vector<std::string> rownames = bmxt.get_row_names({0, 1, 2, 3, 4, header.nrow-5, header.nrow-4, header.nrow-3, header.nrow-2, header.nrow-1});
+            for (std::string& rowname : rownames) {
+                std::cout << rowname << std::endl;
+            }
+
             bmxt.close();
         } catch (const std::exception& e) {
             std::cerr << "Error: Failed to open input file [" << input.get_value() << "]." << std::endl;

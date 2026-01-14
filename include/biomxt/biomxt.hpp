@@ -153,7 +153,9 @@ namespace biomxt {
                 return *this;
             }
 
-            template <typename T> bool read_chunk(biomxt::IndexEntry chunk_index, std::vector<T>& cells);
+            template <typename T> bool read_chunk(uint64_t index, std::vector<T>& cells) const {
+
+            }
 
             template <typename T> bool read_row(uint64_t row_index, std::vector<T>& cells);
             template <typename T> bool read_row(std::string row_name, std::vector<T>& cells);

@@ -3,29 +3,55 @@
 
 namespace biomxt {
 
-    std::vector<std::string_view> parse_line(const std::string& line, uint64_t& reserve_size, char separation) {
-        std::vector<std::string_view> cells;
-        if (line.empty()) return cells;
+    std::vector<std::string> parse_line(const std::string& line, uint64_t& reserve_size, const char separation) {
+        std::vector<std::string> cells;
+        std::string cell;
+        
+        // 性能优化, 预分配内存
+        cells.reserve(reserve_size==0 ? 10 : reserve_size);
 
-        cells.reserve(reserve_size == 0 ? 100 : reserve_size);
+        // 1. 先确定真正的逻辑结尾，排除掉 \r 或 \n
+        size_t end_pos = line.size();
+        while (end_pos > 0 && (line[end_pos - 1] == '\r' || line[end_pos - 1] == '\n')) {
+            end_pos--;
+        }
 
-        size_t start = 0;
+        // 状态: 当前是否处于双引号内
         bool in_quote = false;
-        size_t n = line.size();
 
-        for (size_t i = 0; i < n; ++i) {
+        for (size_t i = 0; i < end_pos; ++i) {
+            
+            // 检测双引号转义：当前字符是"，且下一个字符也是"
             if (line[i] == '"') {
-                in_quote = !in_quote; // 切换引号状态
-            } else if (line[i] == separation && !in_quote) {
-                // 找到分隔符，直接截取原始内存区间
-                cells.emplace_back(line.data() + start, i - start);
-                start = i + 1;
+                if (!in_quote){
+                    // 进入双引号标志
+                    in_quote = true;
+                } else if ( i + 1 < end_pos && line[i+1] == '"'){
+                    // 双引号转义, 直接追加
+                    cell += '"';
+                    // 跳过下一个转义用的双引号（避免重复处理）
+                    ++i;
+                } else {
+                    in_quote = false;
+                }
+            } else if (line[i] == ',' && !in_quote) {
+                // 逗号分隔符, 且不在双引号内
+                cells.push_back(std::move(cell));
+                cell.clear();
+            } else {
+                // 普通字符，直接追加
+                cell += line[i];
             }
         }
-        // 放入最后一个单元格
-        cells.emplace_back(line.data() + start, n - start);
+        
+        // 最后一个单元格不会有分隔符, 所以在这里接住
+        cells.push_back(std::move(cell));
 
-        if (cells.size() > reserve_size) reserve_size = cells.size();
+        // 记录最大单元格数
+        if (cells.size() > reserve_size) {
+            reserve_size = cells.size();
+        }
+        
         return cells;
     }
 

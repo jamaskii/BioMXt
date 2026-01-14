@@ -71,8 +71,8 @@ namespace biomxt {
             uint64_t input_file_line = 1;
             uint64_t col_counts = 0;
             uint64_t row_counts = 0;
-            std::vector<std::string_view> rownames;
-            std::vector<std::string_view> colnames;
+            std::vector<std::string> rownames;
+            std::vector<std::string> colnames;
             uint64_t reserve_size = 0;
             std::vector<float> chunk;
             chunk.reserve(chunk_size);
@@ -92,7 +92,7 @@ namespace biomxt {
                 }
 
                 // Parse line
-                std::vector<std::string_view> cells = biomxt::parse_line(line, reserve_size);
+                std::vector<std::string> cells = biomxt::parse_line(line, reserve_size);
 
                 // Colnames line
                 if (col_counts == 0) {
