@@ -61,12 +61,12 @@ namespace biomxt {
      * @param type String representation of data type. 数据类型的字符串表示.
      * @return DataType Data type enum. 数据类型枚举.
      */
-    inline DataType string_to_dtype(const std::string& type) {
+    inline DataType dtype_from_string(const std::string& type) {
         if (type == "int16") return DataType::INT16;
         if (type == "int32") return DataType::INT32;
         if (type == "int64") return DataType::INT64;
-        if (type == "float" || type == "float32") return DataType::FLOAT32;
-        if (type == "float64") return DataType::FLOAT64;
+        if (type == "float32" || type == "float") return DataType::FLOAT32;
+        if (type == "float64" || type == "double") return DataType::FLOAT64;
         return DataType::UNKNOWN;
     }
 
@@ -75,12 +75,24 @@ namespace biomxt {
      * @tparam T Type. 类型.
      */
     template<typename T>
-               struct dtype_from          { static constexpr DataType value = DataType::UNKNOWN; static constexpr bool valid = false; };
-    template<> struct dtype_from<int16_t> { static constexpr DataType value = DataType::INT16; static constexpr bool valid = true; };
-    template<> struct dtype_from<int32_t> { static constexpr DataType value = DataType::INT32; static constexpr bool valid = true; };
-    template<> struct dtype_from<int64_t> { static constexpr DataType value = DataType::INT64; static constexpr bool valid = true; };
-    template<> struct dtype_from<float>   { static constexpr DataType value = DataType::FLOAT32; static constexpr bool valid = true; };
-    template<> struct dtype_from<double>  { static constexpr DataType value = DataType::FLOAT64; static constexpr bool valid = true; };
+               struct dtype_from_type          { static constexpr DataType value = DataType::UNKNOWN; static constexpr bool valid = false; };
+    template<> struct dtype_from_type<int16_t> { static constexpr DataType value = DataType::INT16; static constexpr bool valid = true; };
+    template<> struct dtype_from_type<int32_t> { static constexpr DataType value = DataType::INT32; static constexpr bool valid = true; };
+    template<> struct dtype_from_type<int64_t> { static constexpr DataType value = DataType::INT64; static constexpr bool valid = true; };
+    template<> struct dtype_from_type<float>   { static constexpr DataType value = DataType::FLOAT32; static constexpr bool valid = true; };
+    template<> struct dtype_from_type<double>  { static constexpr DataType value = DataType::FLOAT64; static constexpr bool valid = true; };
+
+    /**
+     * @brief Get type from data type enum. 从数据类型枚举获取类型.
+     * @tparam DType Data type enum. 数据类型枚举.
+     */
+    template <DataType DType>
+                struct type_from_dtype;
+    template <> struct type_from_dtype<DataType::INT16>   { using type = int16_t; };
+    template <> struct type_from_dtype<DataType::INT32>   { using type = int32_t; };
+    template <> struct type_from_dtype<DataType::INT64>   { using type = int64_t; };
+    template <> struct type_from_dtype<DataType::FLOAT32> { using type = float; };
+    template <> struct type_from_dtype<DataType::FLOAT64> { using type = double; };
 
     /**
      * @brief Compress algorithm enum. 压缩算法枚举.
@@ -121,7 +133,7 @@ namespace biomxt {
      * @param algo String representation of compress algorithm. 压缩算法的字符串表示.
      * @return CompressAlgo Compress algorithm enum. 压缩算法枚举.
      */
-    inline CompressAlgo string_to_algo(const std::string& algo) {
+    inline CompressAlgo algo_from_string(const std::string& algo) {
         if (algo == "zstd") return CompressAlgo::ZSTD;
         if (algo == "gzip") return CompressAlgo::GZIP;
         if (algo == "lz4") return CompressAlgo::LZ4;
@@ -160,22 +172,29 @@ namespace biomxt {
         /**
          * @brief Column counts. 列计数.
          */
-        uint32_t ncolumn;
+        uint32_t ncol;
 
         /**
-         * @brief Chunk size. 块大小.
+         * @brief Block width. 块宽度.
          */
-        uint32_t chunk_size;
+        uint32_t block_width;
 
         /**
-         * @brief Padding. 填充.
+         * @brief Block height. 块高度.
          */
-        uint8_t padding1[4] = {0};
+        uint32_t block_height;
+
+        /**
+         * @brief Block count. 块数量.
+         */
+        uint32_t block_count;
+
+        uint32_t padding1 = 0;
 
         /**
          * @brief Chunk table offset. 块表偏移.
          */
-        uint64_t chunk_table_offset;
+        uint64_t blocks_table_offset;
 
         /**
          * @brief Names table offset. 名称表偏移.
@@ -185,7 +204,7 @@ namespace biomxt {
         /**
          * @brief Padding. 填充.
          */
-        uint8_t padding2[24] = {0};
+        uint8_t padding2[16] = {0};
     };
 
     /**
@@ -198,9 +217,11 @@ namespace biomxt {
         std::cout << "Data type: \t\t" << biomxt::dtype_to_string(header.dtype) << std::endl;
         std::cout << "Compress algorithm: \t" << biomxt::algo_to_string(header.algo) << std::endl;
         std::cout << "Row counts: \t\t" << header.nrow << std::endl;
-        std::cout << "Column counts: \t\t" << header.ncolumn << std::endl;
-        std::cout << "Chunk size: \t\t" << header.chunk_size << std::endl;
-        std::cout << "Chunk table offset: \t" << header.chunk_table_offset << std::endl;
+        std::cout << "Column counts: \t\t" << header.ncol << std::endl;
+        std::cout << "Block width: \t\t" << header.block_width << std::endl;
+        std::cout << "Block height: \t\t" << header.block_height << std::endl;
+        std::cout << "Block count: \t\t" << header.block_count << std::endl;
+        std::cout << "Block table offset: \t" << header.blocks_table_offset << std::endl;
         std::cout << "Names table offset: \t" << header.names_table_offset << std::endl;
     }
 
@@ -219,9 +240,9 @@ namespace biomxt {
         uint32_t size;
 
         /**
-         * @brief Padding. 填充.
+         * @brief Uncompressed size. 未压缩大小.
          */
-        uint32_t padding = 0;
+        uint32_t uncompressed_size;
     };
 
 }

@@ -8,31 +8,54 @@
 #include "zstd.h"
 #include "biomxt/biomxt.hpp"
 #include "cli_app.hpp"
+#include <iomanip>
+#include <chrono>
+
 
 namespace fs = std::filesystem;
 
 
+uint64_t get_timestamp() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+
 // 核心转换逻辑封装
-bool convert_csv_bmxt(std::string input, std::string output, uint32_t chunk_size, char sep, biomxt::DataType dtype, biomxt::CompressAlgo algo, bool first_column_as_rownames)
+bool convert_csv_bmxt(std::string input, std::string output, uint32_t block_width, uint32_t block_height, char sep, const biomxt::DataType dtype, biomxt::CompressAlgo algo)
 {
     // Print params
+    std::cout << "---- Conversion Parameters ----" << std::endl;
     std::cout << "Input: " << input << std::endl;
     std::cout << "Output: " << output << std::endl;
-    std::cout << "Chunk size: " << chunk_size << std::endl;
+    std::cout << "Block width: " << block_width << std::endl;
+    std::cout << "Block height: " << block_height << std::endl;
     std::cout << "Separator: " << sep << std::endl;
     std::cout << "Data type: " << biomxt::dtype_to_string(dtype) << std::endl;
     std::cout << "Compression algo: " << biomxt::algo_to_string(algo) << std::endl;
-    std::cout << "First column as rownames: " << (first_column_as_rownames ? "Yes" : "No") << std::endl;
+    std::cout << "-------------------------------" << std::endl;
     std::cout << "Converting..." << std::endl;
 
     // Convert
-    std::string error;
     std::vector<std::string> warnings;
-    biomxt::FileHeader header = biomxt::csv_to_bmxt(input, output, first_column_as_rownames, chunk_size, sep, dtype, algo, error, warnings);
-    if (!error.empty())
-    {
-        std::cerr << "Error: " << error << std::endl;
-        return false;
+    biomxt::FileHeader header;
+    switch (dtype) {
+        case biomxt::DataType::INT16:
+            header = biomxt::csv_to_bmxt<int16_t>(input, output, block_width, block_height, sep, algo, warnings);
+            break;
+        case biomxt::DataType::INT32:
+            header = biomxt::csv_to_bmxt<int32_t>(input, output, block_width, block_height, sep, algo, warnings);
+            break;
+        case biomxt::DataType::INT64:
+            header = biomxt::csv_to_bmxt<int64_t>(input, output, block_width, block_height, sep, algo, warnings);
+            break;
+        case biomxt::DataType::FLOAT32:
+            header = biomxt::csv_to_bmxt<float>(input, output, block_width, block_height, sep, algo, warnings);
+            break;
+        case biomxt::DataType::FLOAT64:
+            header = biomxt::csv_to_bmxt<double>(input, output, block_width, block_height, sep, algo, warnings);
+            break;
+        default:
+            throw std::runtime_error("biomxt::csv_to_bmxt: Invalid data type.");
     }
     for (const std::string &warn : warnings)
     {
@@ -40,7 +63,8 @@ bool convert_csv_bmxt(std::string input, std::string output, uint32_t chunk_size
     }
 
     std::cout << "Row count: " << header.nrow << std::endl;
-    std::cout << "Col count: " << header.ncolumn << std::endl;
+    std::cout << "Col count: " << header.ncol << std::endl;
+    std::cout << "Block count: " << header.block_count << std::endl;
 
     std::cout << "Conversion completed successfully." << std::endl;
     return true;
@@ -52,12 +76,12 @@ int main(int argc, char *argv[])
     cliapp::Command bmxt = cliapp::Command("bmxt", "\tConvert CSV/TSV to BioMXt format")
         .add_argument(cliapp::Argument("input", "Input file path"))
         .add_option(cliapp::Option::option_with_value("--output", "-o", "Output file path", ""))
-        .add_option(cliapp::Option::option_with_value("--chunk-size", "-c", "Chunk size, default: 50k", "50000"))
+        .add_option(cliapp::Option::option_with_value("--block-width", "-w", "Block width, default: 512", "512"))
+        .add_option(cliapp::Option::option_with_value("--block-height", "-h", "Block height, default: 512", "512"))
         .add_option(cliapp::Option::option_with_value("--algorithm", "-a", "Compression algorithm: zstd(default), gzip, lz4", "zstd"))
         .add_option(cliapp::Option::option_with_value("--separator", "-s", "Separator: ',' or '\\t'. Detect by file extension if not specified, and comma as default if detect failed.", ","))
         .add_option(cliapp::Option::option_with_value("--data-type", "-t", "Data type: int16, int32, int64, float32(default), float64", "float32"))
-        .add_option(cliapp::Option::option_without_value("--first-column-as-rownames", "-r", "First column as rownames"))
-        .add_option(cliapp::Option::option_without_value("--overwrite", "-w", "Overwrite output file if exists"));
+        .add_option(cliapp::Option::option_without_value("--overwrite", "-f", "Overwrite output file if exists"));
 
     cliapp::Command dump = cliapp::Command("dump", "\tDump BioMXt file to CSV/TSV format")
         .add_argument(cliapp::Argument("input", "Input file path"))
@@ -111,7 +135,7 @@ int main(int argc, char *argv[])
             output = fs::path(input.get_value()).replace_extension(".bmxt").string();
         }
         if (std::filesystem::exists(output)) {
-            if (!bmxt.find_option("--overwrite", "-w").is_provided()) {
+            if (!bmxt.find_option("--overwrite", "-f").is_provided()) {
                 std::cerr << "Error: Output file already exists." << std::endl;
                 return 1;
             }
@@ -147,29 +171,32 @@ int main(int argc, char *argv[])
         biomxt::DataType dtype = biomxt::DataType::FLOAT32;
         cliapp::Option dtype_opt = bmxt.find_option("--data-type", "-t");
         if (dtype_opt.is_provided()) {
-            dtype = biomxt::string_to_dtype(dtype_opt.get_value());
+            dtype = biomxt::dtype_from_string(dtype_opt.get_value());
         }
 
         // Confirm compression algorithm
         biomxt::CompressAlgo algo = biomxt::CompressAlgo::ZSTD;
         cliapp::Option algo_opt = bmxt.find_option("--algorithm", "-a");
         if (algo_opt.is_provided()) {
-            algo = biomxt::string_to_algo(algo_opt.get_value());
+            algo = biomxt::algo_from_string(algo_opt.get_value());
         }
-
-        // Confirm first column as rownames
-        bool first_column_as_rownames = bmxt.find_option("--first-column-as-rownames", "-r").is_provided();
         
-        // Confirm chunk size
-        uint32_t chunk_size = 50000;
-        cliapp::Option chunk_size_opt = bmxt.find_option("--chunk-size", "-c");
-        if (chunk_size_opt.is_provided()) {
-            chunk_size = std::stoul(chunk_size_opt.get_value());
+        // Confirm block width and height
+        uint32_t block_width = 512;
+        cliapp::Option block_width_opt = bmxt.find_option("--block-width", "-w");
+        if (block_width_opt.is_provided()) {
+            block_width = std::stoul(block_width_opt.get_value());
+        }
+        uint32_t block_height = 512;
+        cliapp::Option block_height_opt = bmxt.find_option("--block-height", "-h");
+        if (block_height_opt.is_provided()) {
+            block_height = std::stoul(block_height_opt.get_value());
         }
         
         // Run conversion
-        return convert_csv_bmxt(input.get_value(), output, chunk_size, sep, dtype, algo, first_column_as_rownames) ? 0 : 1;
+        return convert_csv_bmxt(input.get_value(), output, block_width, block_height, sep, dtype, algo) ? 0 : 1;
 
+    // }
     } else if (header.is_provided()) {
         cliapp::Argument input = header.find_argument("input");
 
@@ -184,6 +211,21 @@ int main(int argc, char *argv[])
                 std::cout << rowname << std::endl;
             }
 
+            // uint64_t start_time = get_timestamp();
+            // std::cout << "模拟22951次读取" << start_time << std::endl;
+            // std::vector<float> cells;
+            // size_t cur_chunk = 0;
+            // for (size_t i=0; i<22951; i++) {
+            //     if (cur_chunk > 6880) {
+            //         cur_chunk = 0;
+            //     }
+            //     bmxt.read_chunk(cur_chunk, cells);
+            //     cur_chunk++;
+            // }
+            // bmxt.read_chunk(0, cells);
+            // std::cout << "模拟22951次读取耗时" << get_timestamp() - start_time << std::endl;
+            
+            
             bmxt.close();
         } catch (const std::exception& e) {
             std::cerr << "Error: Failed to open input file [" << input.get_value() << "]." << std::endl;

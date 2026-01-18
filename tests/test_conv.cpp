@@ -11,11 +11,12 @@
 #define ARG_INPUT_FILE              "test_data/PRJNA978570_RNA_data.csv"
 #define ARG_OUTPUT_FILE             "test_data/PRJNA978570_RNA_data.bmxt"
 #define ARG_FIRST_COL_AS_ROWNAMES   true
-#define ARG_CHUNK_SIZE              50000
-#define ARG_SEPARATION_CHAR         ','
+#define ARG_BLOCK_WIDTH             512
+#define ARG_BLOCK_HEIGHT            512
+#define ARG_SEPARATOR               ','
 #define ARG_DTYPE                   biomxt::DataType::FLOAT32
 #define ARG_ALGO                    biomxt::CompressAlgo::ZSTD
-#define TEST_EPOCHES                3
+#define TEST_EPOCHES                1
 
 
 uint64_t get_timestamp() {
@@ -25,15 +26,18 @@ uint64_t get_timestamp() {
 biomxt::FileHeader run_test() {
     std::string error;
     std::vector<std::string> warnings;
-    biomxt::FileHeader header = biomxt::csv_to_bmxt(ARG_INPUT_FILE, ARG_OUTPUT_FILE, ARG_FIRST_COL_AS_ROWNAMES, ARG_CHUNK_SIZE, ARG_SEPARATION_CHAR, ARG_DTYPE, ARG_ALGO, error, warnings);
-    if (!error.empty()) {
-        std::cerr << "Error: " << error << std::endl;
-        return header;
-    }
+    return biomxt::csv_to_bmxt<float>(
+        ARG_INPUT_FILE, 
+        ARG_OUTPUT_FILE, 
+        ARG_BLOCK_WIDTH, 
+        ARG_BLOCK_HEIGHT, 
+        ARG_SEPARATOR, 
+        ARG_ALGO, 
+        warnings);
     for (const std::string& warn : warnings) {
         std::cerr << "Warning: " << warn << std::endl;
     }
-    return header;
+    
 }
 
 int main() {
