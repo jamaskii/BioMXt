@@ -2,9 +2,8 @@
 #include <fstream>
 #include <vector>
 #include <chrono>
-#include "biomxt/csv_parser.hpp"
+#include "biomxt/csv_to_bmxt.hpp"
 #include "biomxt/spec.hpp"
-#include "biomxt/biomxt.hpp"
 #include "zstd.h"
 
 

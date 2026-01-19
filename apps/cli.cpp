@@ -3,13 +3,13 @@
 #include <vector>
 #include <filesystem>
 #include <chrono>
-#include "biomxt/spec.hpp"
-#include "biomxt/csv_parser.hpp"
-#include "zstd.h"
-#include "biomxt/biomxt.hpp"
-#include "cli_app.hpp"
 #include <iomanip>
 #include <chrono>
+#include "zstd.h"
+#include "cli_app.hpp"
+#include "biomxt/spec.hpp"
+#include "biomxt/csv_to_bmxt.hpp"
+#include "biomxt/biomxt_file.hpp"
 
 
 namespace fs = std::filesystem;
@@ -206,9 +206,18 @@ int main(int argc, char *argv[])
             biomxt::FileHeader header = bmxt.get_header();
             biomxt::print_bmxt_header(header);
 
-            std::vector<std::string> rownames = bmxt.get_row_names({0, 1, 2, 3, 4, header.nrow-5, header.nrow-4, header.nrow-3, header.nrow-2, header.nrow-1});
-            for (std::string& rowname : rownames) {
-                std::cout << rowname << std::endl;
+            // std::vector<std::string> rownames = bmxt.get_row_names({0, 1, 2, 3, 4, header.nrow-5, header.nrow-4, header.nrow-3, header.nrow-2, header.nrow-1});
+            // for (std::string& rowname : rownames) {
+            //     std::cout << rowname << std::endl;
+            // }
+
+            std::vector<float> cells(header.block_width * header.block_height);
+            std::vector<char> buffer(bmxt.get_max_compressed_block_size());
+            bmxt.read_block(0, buffer, cells);
+
+            // Print first 10 cells
+            for (size_t i=0; i<10; i++) {
+                std::cout << "Cell[" << i << "] = " << cells[i] << std::endl;
             }
 
             // uint64_t start_time = get_timestamp();

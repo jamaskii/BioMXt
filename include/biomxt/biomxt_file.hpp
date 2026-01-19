@@ -3,7 +3,6 @@
 #include <fstream>
 #include <vector>
 #include <chrono>
-#include "biomxt/csv_parser.hpp"
 #include "biomxt/spec.hpp"
 #include "zstd.h"
 #include <functional>
@@ -12,76 +11,17 @@
 
 
 namespace biomxt {
-
-    const uint16_t VERSION = 1;
-
-    /**
-     * @brief 将内存块压缩并写入文件，返回对应的索引条目
-     * @param src_data 待压缩数据的起始指针
-     * @param uncompressed_byte_size 数据原始字节大小
-     * @param out 输出文件流
-     * @param algo 压缩算法
-     */
-    biomxt::IndexEntry compress_bytes_and_write(
-        const void* src_data, 
-        size_t uncompressed_byte_size, 
-        std::ofstream& out, 
-        std::vector<char>& compressed_buf,
-        biomxt::CompressAlgo algo);
-
-    
-    /**
-     * @brief 将字符串转换为指定类型的数值
-     * @param str 待转换的字符串
-     * @return T 转换后的数值
-     * @throws std::out_of_range 如果数值超出范围
-     */
-    template <typename T> inline T string_to(const std::string& str) {
-        static_assert(dtype_from_type<T>::valid, "biomxt::string_to<T>: Unsupported type. Only int16_t, int32_t, int64_t, float, and double are allowed.");
-        return T{}; 
-    }
-    template <> inline int16_t string_to<int16_t>(const std::string& str) {
-        int32_t value = std::stoi(str);
-        if (value < INT16_MIN || value > INT16_MAX) {
-            throw std::out_of_range("biomxt::string_to<int16_t>: Value out of range for int16_t.");
-        }
-        return static_cast<int16_t>(value);
-    }
-    template <> inline int32_t string_to<int32_t>(const std::string& str) { return static_cast<int32_t>(std::stoi(str)); }
-    template <> inline int64_t string_to<int64_t>(const std::string& str) { return std::stoll(str); }
-    template <> inline float string_to<float>(const std::string& str) { return std::stof(str); }
-    template <> inline double string_to<double>(const std::string& str) { return std::stod(str); }
-    
-    /**
-     * @brief Convert csv file to bmxt format. 将 CSV 文件转换为 Biomxt 文件
-     * @param input_file Input file path. 输入 CSV 文件路径
-     * @param output_file Output file path. 输出 Biomxt 文件路径
-     * @param block_width Block width. 块的宽度
-     * @param block_height Block height. 块高度
-     * @param separator Separator character. CSV 文件的分隔符
-     * @param algo Compression algorithm. 压缩算法
-     * @param warnings Warnings info during conversion.转换过程中产生的警告信息
-     * @return biomxt::FileHeader Header of bmxt file converted. 转换后的文件头信息
-     * @throw std::runtime_error If the input/output file cannot be opened, or 
-     *                           if the csv file contains row of inconsistent counts of cells.
-     */
-    template <typename T>biomxt::FileHeader csv_to_bmxt(
-        const std::string& input_file, 
-        const std::string& output_file, 
-        uint32_t block_width, 
-        uint32_t block_height, 
-        char separator, 
-        biomxt::CompressAlgo algo,
-        std::vector<std::string>& warnings);
-
     class BiomxtFile {
         public:
             /**
-             * @brief Constructor
+             *                           @brief     Constructor
              * 
-             * @param path The path to the Biomxt file to open. 要打开的 Biomxt 文件路径
-             * @throws std::runtime_error If the file cannot be opened. 无法打开文件
-             * @throws std::runtime_error If the file has a bad header/magic/blocks table offset/names table offset. 损坏的文件头信息、魔数、块表偏移量或名称表偏移量
+             *                      @param path     The path to the Biomxt file to open.
+             *     @throws `std::runtime_error`     If the file cannot be opened.
+             *     @throws `std::runtime_error`     If the file has a bad header.
+             *     @throws `std::runtime_error`     If the file has a bad magic.
+             *     @throws `std::runtime_error`     If the file has a bad block table offset.
+             *     @throws `std::runtime_error`     If the file has a bad name table offset.
              */
             BiomxtFile(const std::string& path) {
                 // Open file in binary mode for reading
@@ -107,29 +47,35 @@ namespace biomxt {
                 }
 
                 // Read block table
-                if (_header.blocks_table_offset >= file_size) {
-                    throw std::runtime_error("biomxt::BiomxtFile: Corrupted file: blocks table offset [" + std::to_string(_header.blocks_table_offset) + "] exceeds file size [" + std::to_string(file_size) + "]");
+                if (_header.block_table_offset >= file_size) {
+                    throw std::runtime_error("biomxt::BiomxtFile: Corrupted file: block table offset [" + std::to_string(_header.block_table_offset) + "] exceeds file size [" + std::to_string(file_size) + "]");
                 }
-                _ifile.seekg(_header.blocks_table_offset, std::ios::beg);
-                _blocks_table.resize(_header.block_count);
-                _ifile.read(reinterpret_cast<char*>(_blocks_table.data()), _header.block_count * sizeof(biomxt::IndexEntry));
+                _ifile.seekg(_header.block_table_offset, std::ios::beg);
+                _block_table.resize(_header.block_count);
+                _ifile.read(reinterpret_cast<char*>(_block_table.data()), _header.block_count * sizeof(biomxt::IndexEntry));
+
+                // Calculate max compressed block size
+                for (const auto& block_index : _block_table) {
+                    _max_compressed_block_size = std::max(_max_compressed_block_size, block_index.size);
+                    _max_uncompressed_block_size = std::max(_max_uncompressed_block_size, block_index.raw_size);
+                }
 
                 // Read names table
-                if (_header.names_table_offset >= file_size) {
-                    throw std::runtime_error("Corrupted file: names table offset [" + std::to_string(_header.names_table_offset) + "] exceeds file size [" + std::to_string(file_size) + "]");
+                if (_header.name_table_offset >= file_size) {
+                    throw std::runtime_error("Corrupted file: names table offset [" + std::to_string(_header.name_table_offset) + "] exceeds file size [" + std::to_string(file_size) + "]");
                 }
-                _ifile.seekg(_header.names_table_offset, std::ios::beg);
-                std::vector<biomxt::IndexEntry> names_table(_header.nrow + _header.ncol);
-                names_table.resize(_header.nrow + _header.ncol);
-                _ifile.read(reinterpret_cast<char*>(names_table.data()), (_header.nrow + _header.ncol) * sizeof(biomxt::IndexEntry));
+                _ifile.seekg(_header.name_table_offset, std::ios::beg);
+                std::vector<biomxt::IndexEntry> name_table(_header.nrow + _header.ncol);
+                name_table.resize(_header.nrow + _header.ncol);
+                _ifile.read(reinterpret_cast<char*>(name_table.data()), (_header.nrow + _header.ncol) * sizeof(biomxt::IndexEntry));
 
                 // Read row names and build map
                 _row_names.resize(_header.nrow);
-                _row_map.reserve(_header.nrow); // 预分配哈希表空间，减少 rehash
+                _row_map.reserve(_header.nrow);
                 for (uint64_t i = 0; i < _header.nrow; ++i) {
-                    _ifile.seekg(names_table[i].offset, std::ios::beg);
-                    _row_names[i].resize(names_table[i].size);
-                    _ifile.read(&_row_names[i][0], names_table[i].size);
+                    _ifile.seekg(name_table[i].offset, std::ios::beg);
+                    _row_names[i].resize(name_table[i].size);
+                    _ifile.read(&_row_names[i][0], name_table[i].size);
                     _row_map[_row_names[i]] = i;
                 }
 
@@ -138,39 +84,32 @@ namespace biomxt {
                 _column_map.reserve(_header.ncol);
                 for (uint64_t i = 0; i < _header.ncol; ++i) {
                     uint64_t idx = _header.nrow + i;
-                    _ifile.seekg(names_table[idx].offset, std::ios::beg);
-                    _column_names[i].resize(names_table[idx].size);
-                    _ifile.read(&_column_names[i][0], names_table[idx].size);
+                    _ifile.seekg(name_table[idx].offset, std::ios::beg);
+                    _column_names[i].resize(name_table[idx].size);
+                    _ifile.read(&_column_names[i][0], name_table[idx].size);
                     _column_map[_column_names[i]] = i;
                 }
             }
 
             /**
-             * @brief Destructor
+             *                           @brief     Destructor
              * 
-             * @note Releases all resources held by the BiomxtFile instance,
-             *       including the file stream and memory buffers.
+             *                            @note     Close file stream, clear memory buffers.
              */
             ~BiomxtFile() { _release_resources(); }
 
             /**
-             * @brief Move constructor
+             *                           @brief     Move constructor
              * 
-             * @param other The BiomxtFile instance to move from.
+             *                     @param other     The BiomxtFile instance to move from.
              */
-            BiomxtFile(BiomxtFile&& other) noexcept {
-                *this = std::move(other);
-            }
+            BiomxtFile(BiomxtFile&& other) noexcept { *this = std::move(other); }
 
             /**
-             * @brief Move assignment operator
+             * @brief                               Move assignment operator
              * 
-             * @param other Where the resources are moved from, 
-             *              invalidated after the move.
+             * @param other                         The resources are moved from, invalidated after the move.
              * @return BiomxtFile& 
-             * @note This operator moves resources from `other` to `this`, 
-             *       invalidating `other`,
-             *       with noexcept guarantee.
              */
             BiomxtFile& operator=(BiomxtFile&& other) noexcept {
                 if (this != &other) {
@@ -182,7 +121,7 @@ namespace biomxt {
                     _header = other._header;
                     
                     // Move resources from other to this
-                    _blocks_table = std::move(other._blocks_table);
+                    _block_table = std::move(other._block_table);
                     _row_names = std::move(other._row_names);
                     _column_names = std::move(other._column_names);
                     
@@ -196,7 +135,51 @@ namespace biomxt {
                 return *this;
             }
 
-            template <typename T> bool read_chunk(uint64_t index, std::vector<T>& cells);
+            template <typename T> void read_block(uint64_t index, std::vector<char>& compressed_buffer, std::vector<T>& cells) {
+
+                // Confirm data type
+                if (_header.dtype != biomxt::dtype_from_type<T>::value) {
+                    throw std::invalid_argument("biomxt::BiomxtFile::read_block: data type mismatch, expected [" + biomxt::dtype_to_string(_header.dtype) + "], got [" + biomxt::dtype_to_string(biomxt::dtype_from_type<T>::value) + "]");
+                }
+
+                // Check index range
+                if (index >= _header.block_count) {
+                    throw std::out_of_range("biomxt::BiomxtFile::read_block: block index [" + std::to_string(index) + "] exceeds block count [" + std::to_string(_header.block_count) + "]");
+                }
+
+                // Check compressed/cells buffer size
+                const auto& block_index = _block_table[index];
+                uint32_t ncells = block_index.raw_size / sizeof(T);
+                if (cells.size() != ncells) cells.resize(ncells);
+                if (compressed_buffer.size() < block_index.size) {
+                    throw std::invalid_argument("biomxt::BiomxtFile::read_block: compressed buffer size [" + std::to_string(compressed_buffer.size()) + "] is smaller than block size [" + std::to_string(block_index.size) + "]");
+                }
+
+                // Read from file
+                _ifile.seekg(block_index.offset, std::ios::beg);
+                if (!_ifile.read(compressed_buffer.data(), block_index.size)) {
+                    throw std::runtime_error("biomxt::BiomxtFile::read_block: read block [" + std::to_string(index) + "] data from file failed");
+                }
+                
+                // Decompress
+                size_t decompressed_size = 0;
+                switch (_header.algo) {
+                    case biomxt::CompressAlgo::ZSTD:
+                        decompressed_size = ZSTD_decompress(
+                            cells.data(),                   // target addr
+                            block_index.raw_size,           // target size
+                            compressed_buffer.data(),       // source addr
+                            block_index.size                // source size
+                        );
+                        if (ZSTD_isError(decompressed_size)) {
+                            throw std::runtime_error("biomxt::BiomxtFile::read_block: ZSTD_decompress error [" + std::string(ZSTD_getErrorName(decompressed_size)) + "]");
+                        }
+                        break;
+                    default:
+                        throw std::invalid_argument("biomxt::BiomxtFile::read_block: unsupported compression algorithm [" + std::to_string(_header.algo) + "]");
+                }
+                
+            }
 
             template <typename T> bool read_row(uint64_t row_index, std::vector<T>& cells);
             template <typename T> bool read_row(std::string row_name, std::vector<T>& cells);
@@ -212,10 +195,10 @@ namespace biomxt {
             template <typename T> bool read_columns_stream(std::vector<uint64_t> column_indices, std::function<void(uint64_t, const std::vector<T>&)> callback);
             template <typename T> bool read_columns_stream(const std::vector<std::string>& column_names, std::function<void(uint64_t, const std::vector<T>&)> callback);
 
-            template <typename T> bool read_block(const std::vector<std::string>& row_names, const std::vector<std::string>& column_names, std::vector<T>& cells);
-            template <typename T> bool read_block(std::vector<uint64_t> row_indices, const std::vector<std::string>& column_names, std::vector<T>& cells);
-            template <typename T> bool read_block(const std::vector<std::string>& row_names, std::vector<uint64_t> column_indices, std::vector<T>& cells);
-            template <typename T> bool read_block(std::vector<uint64_t> row_indices, std::vector<uint64_t> column_indices, std::vector<T>& cells);
+            template <typename T> bool read_sub_matrix(const std::vector<std::string>& row_names, const std::vector<std::string>& column_names, std::vector<T>& cells);
+            template <typename T> bool read_sub_matrix(std::vector<uint64_t> row_indices, const std::vector<std::string>& column_names, std::vector<T>& cells);
+            template <typename T> bool read_sub_matrix(const std::vector<std::string>& row_names, std::vector<uint64_t> column_indices, std::vector<T>& cells);
+            template <typename T> bool read_sub_matrix(std::vector<uint64_t> row_indices, std::vector<uint64_t> column_indices, std::vector<T>& cells);
 
             /**
              * @brief Get row names
@@ -380,16 +363,31 @@ namespace biomxt {
              */
             void close() { _release_resources(); }
 
+             /**
+             * @brief Get the maximum compressed block size.
+             * 
+             * @return uint32_t The maximum compressed block size.
+             */
+            uint32_t get_max_compressed_block_size() const { return _max_compressed_block_size; }
+
+             /**
+             * @brief Get the maximum uncompressed block size.
+             * 
+             * @return uint32_t The maximum uncompressed block size.
+             */
+            uint32_t get_max_uncompressed_block_size() const { return _max_uncompressed_block_size; }
+
         private:
             std::ifstream _ifile;
             biomxt::FileHeader _header;
-            std::vector<biomxt::IndexEntry> _blocks_table;
+            std::vector<biomxt::IndexEntry> _block_table;
             std::vector<std::string> _row_names;
             std::vector<std::string> _column_names;
             std::unordered_map<std::string, uint64_t> _row_map;
             std::unordered_map<std::string, uint64_t> _column_map;
+            uint32_t _max_compressed_block_size = 0;
+            uint32_t _max_uncompressed_block_size = 0;
 
-            
 
             /**
              * @brief Close the file stream, clear data and release memory.
@@ -399,8 +397,8 @@ namespace biomxt {
                 if (_ifile.is_open()) _ifile.close();
                 
                 // Clear the chunk table and release memory
-                _blocks_table.clear();
-                _blocks_table.shrink_to_fit();
+                _block_table.clear();
+                _block_table.shrink_to_fit();
                 
                 // Clear row and column names and release memory
                 _row_names.clear();
@@ -415,5 +413,4 @@ namespace biomxt {
                 std::unordered_map<std::string, uint64_t>().swap(_column_map);
             }
     };
-        
 }

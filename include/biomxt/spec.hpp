@@ -1,7 +1,11 @@
 #pragma once
 #include <cstdint>
+#include <iostream>
+
 
 #pragma pack(push, 1)
+
+#define BIOMXT_FILE_VERSION 0x0001
 
 namespace biomxt {
 
@@ -152,7 +156,7 @@ namespace biomxt {
         /**
          * @brief Version number. 版本号.
          */
-        uint16_t version = 1;
+        uint16_t version = BIOMXT_FILE_VERSION;
 
         /**
          * @brief Data type. 数据类型.
@@ -192,14 +196,14 @@ namespace biomxt {
         uint32_t padding1 = 0;
 
         /**
-         * @brief Chunk table offset. 块表偏移.
+         * @brief Block table offset. 块表偏移.
          */
-        uint64_t blocks_table_offset;
+        uint64_t block_table_offset;
 
         /**
-         * @brief Names table offset. 名称表偏移.
+         * @brief Name table offset. 名称表偏移.
          */
-        uint64_t names_table_offset;
+        uint64_t name_table_offset;
 
         /**
          * @brief Padding. 填充.
@@ -221,8 +225,8 @@ namespace biomxt {
         std::cout << "Block width: \t\t" << header.block_width << std::endl;
         std::cout << "Block height: \t\t" << header.block_height << std::endl;
         std::cout << "Block count: \t\t" << header.block_count << std::endl;
-        std::cout << "Block table offset: \t" << header.blocks_table_offset << std::endl;
-        std::cout << "Names table offset: \t" << header.names_table_offset << std::endl;
+        std::cout << "Block table offset: \t" << header.block_table_offset << std::endl;
+        std::cout << "Name table offset: \t" << header.name_table_offset << std::endl;
     }
 
     /**
@@ -242,7 +246,7 @@ namespace biomxt {
         /**
          * @brief Uncompressed size. 未压缩大小.
          */
-        uint32_t uncompressed_size;
+        uint32_t raw_size;
     };
 
 }
