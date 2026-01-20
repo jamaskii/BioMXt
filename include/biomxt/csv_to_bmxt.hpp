@@ -59,7 +59,14 @@ namespace biomxt {
     }
     template <> inline int32_t string_to<int32_t>(const std::string& str) { return static_cast<int32_t>(std::stoi(str)); }
     template <> inline int64_t string_to<int64_t>(const std::string& str) { return std::stoll(str); }
-    template <> inline float string_to<float>(const std::string& str) { return std::stof(str); }
+    template <> inline float string_to<float>(const std::string& str) { 
+        float val;
+        auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), val);
+        if (ec != std::errc()) {
+            throw std::invalid_argument("biomxt::string_to<float>: Failed to parse float value.");
+        }
+        return val;
+    }
     template <> inline double string_to<double>(const std::string& str) { return std::stod(str); }
 
     /**

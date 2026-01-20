@@ -15,7 +15,7 @@
 #define ARG_SEPARATOR               ','
 #define ARG_DTYPE                   biomxt::DataType::FLOAT32
 #define ARG_ALGO                    biomxt::CompressAlgo::ZSTD
-#define TEST_EPOCHES                1
+#define TEST_EPOCHES                3
 
 
 uint64_t get_timestamp() {
