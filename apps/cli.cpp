@@ -212,8 +212,10 @@ int main(int argc, char *argv[])
             // }
 
             std::vector<float> cells(header.block_width * header.block_height);
-            std::vector<char> buffer(bmxt.get_max_compressed_block_size());
-            bmxt.read_block(0, buffer, cells);
+            std::vector<char> compressed_buffer(bmxt.get_max_compressed_block_size());
+            std::vector<float> block_buffer(bmxt.get_header().ncol * header.block_height);
+            bmxt.read_column("AP1_AGAGAATCAGGTCAAG.1", compressed_buffer, block_buffer, cells);
+            
 
             // Print first 10 cells
             for (size_t i=0; i<10; i++) {

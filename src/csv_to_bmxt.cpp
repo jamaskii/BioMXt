@@ -3,7 +3,7 @@
 
 namespace biomxt {
 
-    uint64_t csv_parse_line(
+    uint32_t csv_parse_line(
         const std::string& line, 
         std::vector<std::string>& cells,
         const char separator)
@@ -21,7 +21,7 @@ namespace biomxt {
             bool in_quote = false;
 
             // Parse the line char by char
-            uint64_t cell_count = 0;
+            uint32_t cell_count = 0;
             const size_t max_cells = cells.size();
             if (max_cells == 0) {
                 throw std::invalid_argument("biomxt::csv_parse_line: Size of cells vector cannot be zero");
@@ -64,7 +64,7 @@ namespace biomxt {
             return cell_count + 1;
         }
 
-    uint64_t csv_parse_line(
+    uint32_t csv_parse_line(
         const std::string& line, 
         const char separator) 
         {
@@ -81,7 +81,7 @@ namespace biomxt {
             bool in_quote = false;
 
             // Parse the line char by char
-            uint64_t cell_count = 0;
+            uint32_t cell_count = 0;
             for (size_t i = 0; i < end_pos; ++i) {
                 const char c = line[i];
                 // Detect double quote escape.
@@ -131,10 +131,10 @@ namespace biomxt {
         }
         
         // Split rows buffer into blocks
-        uint64_t row_buffer_size = rows_buffer[0].size();
-        uint64_t steps = 0;
+        uint32_t row_buffer_size = rows_buffer[0].size();
+        uint32_t steps = 0;
         uint32_t actual_block_width = 0;
-        for(uint64_t pos = 0; pos < row_buffer_size; pos++) {
+        for(uint32_t pos = 0; pos < row_buffer_size; pos++) {
             // When goes into a new block, update actual block width.
             if (steps == 0) {
                 actual_block_width = std::min(block_width, static_cast<uint32_t>(row_buffer_size-pos));
@@ -144,8 +144,8 @@ namespace biomxt {
             }
 
             // Fill the block with current column.
-            for (uint64_t i=0; i<actual_block_height; i++){
-                block[steps+actual_block_width*i] = rows_buffer[i][pos];
+            for (uint32_t i=0; i<actual_block_height; i++){
+                block[actual_block_width*i+steps] = rows_buffer[i][pos];
             }
             steps++;
 
@@ -230,8 +230,8 @@ namespace biomxt {
             std::vector<T> block_buffer;
 
             std::string line;
-            uint64_t cur_file_line = 0;
-            uint64_t reserve_size = 0;
+            uint32_t cur_file_line = 0;
+            uint32_t reserve_size = 0;
             
             // Streamly read and write
             while (std::getline(in_file, line)) {
@@ -245,7 +245,7 @@ namespace biomxt {
                 // First non-empty line as the header
                 if (colnames.empty()) {
                     // Get ncol
-                    uint64_t ncol = biomxt::csv_parse_line(line, separator);
+                    uint32_t ncol = biomxt::csv_parse_line(line, separator);
                     // Initialize rows buffer by ncol-1 (Ignore first column which is row name)
                     for (std::vector<T>& row : rows_buffer) {
                         row.resize(ncol-1);
@@ -304,11 +304,11 @@ namespace biomxt {
 
             // Write block count and table 
             header.block_count = block_table.size();
-            header.block_table_offset = out_file.tellp();
+            header.block_table_offset = static_cast<uint64_t>(out_file.tellp());
             out_file.write(reinterpret_cast<const char*>(block_table.data()), block_table.size() * sizeof(biomxt::IndexEntry));
 
             // Write names table
-            header.name_table_offset = out_file.tellp();
+            header.name_table_offset = static_cast<uint64_t>(out_file.tellp());
             out_file.write(reinterpret_cast<const char*>(names_table.data()), names_table.size() * sizeof(biomxt::IndexEntry));
 
             // Write header to output file

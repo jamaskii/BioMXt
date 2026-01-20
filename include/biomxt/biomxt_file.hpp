@@ -72,7 +72,7 @@ namespace biomxt {
                 // Read row names and build map
                 _row_names.resize(_header.nrow);
                 _row_map.reserve(_header.nrow);
-                for (uint64_t i = 0; i < _header.nrow; ++i) {
+                for (uint32_t i = 0; i < _header.nrow; ++i) {
                     _ifile.seekg(name_table[i].offset, std::ios::beg);
                     _row_names[i].resize(name_table[i].size);
                     _ifile.read(&_row_names[i][0], name_table[i].size);
@@ -82,8 +82,8 @@ namespace biomxt {
                 // Read column names and build map
                 _column_names.resize(_header.ncol);
                 _column_map.reserve(_header.ncol);
-                for (uint64_t i = 0; i < _header.ncol; ++i) {
-                    uint64_t idx = _header.nrow + i;
+                for (uint32_t i = 0; i < _header.ncol; ++i) {
+                    uint32_t idx = _header.nrow + i;
                     _ifile.seekg(name_table[idx].offset, std::ios::beg);
                     _column_names[i].resize(name_table[idx].size);
                     _ifile.read(&_column_names[i][0], name_table[idx].size);
@@ -135,7 +135,23 @@ namespace biomxt {
                 return *this;
             }
 
-            template <typename T> void read_block(uint64_t index, std::vector<char>& compressed_buffer, std::vector<T>& cells) {
+            /**
+             * @brief                               Read a block from file
+             * 
+             * @param index                         The block index to read
+             * @param compressed_buffer             The compressed buffer to store decompressed data
+             * @param cells                         The cells to store read data
+             * @throws std::runtime_error           If file is closed
+             * @throws std::invalid_argument        If data type mismatch
+             * @throws std::out_of_range            If block index exceeds block count
+             * @throws std::runtime_error           If compress failed
+             * @throws std::runtime_error           If read data from file failed
+             */
+            template <typename T> void read_block(uint32_t index, std::vector<char>& compressed_buffer, std::vector<T>& cells) {
+                // Check file is closed
+                if (!_ifile.is_open()) {
+                    throw std::runtime_error("biomxt::BiomxtFile::read_block: file is closed");
+                }
 
                 // Confirm data type
                 if (_header.dtype != biomxt::dtype_from_type<T>::value) {
@@ -152,7 +168,7 @@ namespace biomxt {
                 uint32_t ncells = block_index.raw_size / sizeof(T);
                 if (cells.size() != ncells) cells.resize(ncells);
                 if (compressed_buffer.size() < block_index.size) {
-                    throw std::invalid_argument("biomxt::BiomxtFile::read_block: compressed buffer size [" + std::to_string(compressed_buffer.size()) + "] is smaller than block size [" + std::to_string(block_index.size) + "]");
+                    compressed_buffer.resize(block_index.size);
                 }
 
                 // Read from file
@@ -181,24 +197,131 @@ namespace biomxt {
                 
             }
 
-            template <typename T> bool read_row(uint64_t row_index, std::vector<T>& cells);
-            template <typename T> bool read_row(std::string row_name, std::vector<T>& cells);
-            template <typename T> bool read_rows(std::vector<uint64_t> row_indices, std::vector<T>& cells);
-            template <typename T> bool read_rows(const std::vector<std::string>& row_names, std::vector<T>& cells);
-            template <typename T> bool read_rows_stream(std::vector<uint64_t> row_indices, std::function<void(uint64_t, const std::vector<T>&)> callback);
-            template <typename T> bool read_rows_stream(const std::vector<std::string>& row_names, std::function<void(uint64_t, const std::vector<T>&)> callback);
+            /**
+             * @brief                               Read a row from file
+             * 
+             * @param row_index                     The row index to read
+             * @param compressed_buffer             The compressed buffer to store decompressed data
+             * @param block_buffer                  The block buffer to store decompressed data
+             * @param cells                         The cells to store read data
+             * @throws std::runtime_error           If file is closed
+             * @throws std::invalid_argument        If data type mismatch
+             * @throws std::out_of_range            If row index exceeds row count
+             */
+            template <typename T> void read_row(uint32_t row_index, std::vector<char>& compressed_buffer, std::vector<T>& block_buffer, std::vector<T>& cells) {
+                // Check file is closed
+                if (!_ifile.is_open()) {
+                    throw std::runtime_error("biomxt::BiomxtFile::read_block: file is closed");
+                }
+                
+                // Check row index range
+                if (row_index >= _header.nrow) {
+                    throw std::out_of_range("biomxt::BiomxtFile::read_row: row index [" + std::to_string(row_index) + "] exceeds row count [" + std::to_string(_header.nrow) + "]");
+                }
+                
+                // Prepare result container
+                cells.resize(_header.ncol);
 
-            template <typename T> bool read_column(uint64_t column_index, std::vector<T>& cells);
-            template <typename T> bool read_column(std::string column_name, std::vector<T>& cells);
-            template <typename T> bool read_columns(std::vector<uint64_t> column_indices, std::vector<T>& cells);
-            template <typename T> bool read_columns(const std::vector<std::string>& column_names, std::vector<T>& cells);
-            template <typename T> bool read_columns_stream(std::vector<uint64_t> column_indices, std::function<void(uint64_t, const std::vector<T>&)> callback);
-            template <typename T> bool read_columns_stream(const std::vector<std::string>& column_names, std::function<void(uint64_t, const std::vector<T>&)> callback);
+                // Calculate block pos
+                uint32_t block_pos_y = row_index / _header.block_height; // Block's row index
+                uint32_t row_in_block = row_index % _header.block_height;  // Target row index inner block
 
-            template <typename T> bool read_sub_matrix(const std::vector<std::string>& row_names, const std::vector<std::string>& column_names, std::vector<T>& cells);
-            template <typename T> bool read_sub_matrix(std::vector<uint64_t> row_indices, const std::vector<std::string>& column_names, std::vector<T>& cells);
-            template <typename T> bool read_sub_matrix(const std::vector<std::string>& row_names, std::vector<uint64_t> column_indices, std::vector<T>& cells);
-            template <typename T> bool read_sub_matrix(std::vector<uint64_t> row_indices, std::vector<uint64_t> column_indices, std::vector<T>& cells);
+                // How many block in horizontal direction
+                uint32_t block_max_x = (_header.ncol + _header.block_width - 1) / _header.block_width;
+
+                // Traverse all blocks in horizontal direction
+                for (uint32_t block_pos_x = 0; block_pos_x < block_max_x; ++block_pos_x) {
+                    uint32_t block_idx = (uint32_t)block_pos_y * block_max_x + block_pos_x;
+                    
+                    // Read block
+                    this->read_block<T>(block_idx, compressed_buffer, block_buffer);
+
+                    // Calculate actual block size
+                    uint32_t actual_block_width = std::min(_header.block_width, _header.ncol - block_pos_x * _header.block_width);
+                    uint32_t actual_block_height = block_buffer.size() / actual_block_width;
+
+                    // Fetch target inner block row
+                    const T* row_start = block_buffer.data() + (row_in_block * actual_block_width);
+                    std::copy(row_start, row_start + actual_block_width, cells.begin() + (block_pos_x * _header.block_width));
+                }
+
+            }
+
+            /**
+             * @brief                               Read a row from file
+             * 
+             * @param row_name                      The row name to read
+             * @param compressed_buffer             The compressed buffer to store decompressed data
+             * @param block_buffer                  The block buffer to store decompressed data
+             * @param cells                         The cells to store read data
+             * @throws std::runtime_error           If file is closed
+             * @throws std::invalid_argument        If data type mismatch
+             * @throws std::out_of_range            If row index exceeds row count
+             */
+            template <typename T> void read_row(std::string row_name, std::vector<char>& compressed_buffer, std::vector<T>& block_buffer, std::vector<T>& cells) {
+                auto it = _row_map.find(row_name);
+                if (it == _row_map.end()) {
+                    throw std::invalid_argument("biomxt::BiomxtFile::read_row: row name [" + row_name + "] not found");
+                }
+                read_row<T>(it->second, compressed_buffer, block_buffer, cells);
+            }
+
+            template <typename T> void read_column(uint32_t column_index, std::vector<char>& compressed_buffer, std::vector<T>& block_buffer, std::vector<T>& cells) {
+                // Check file is closed
+                if (!_ifile.is_open()) {
+                    throw std::runtime_error("biomxt::BiomxtFile::read_block: file is closed");
+                }
+                
+                // Check row index range
+                if (column_index >= _header.ncol) {
+                    throw std::out_of_range("biomxt::BiomxtFile::read_column: column index [" + std::to_string(column_index) + "] exceeds column count [" + std::to_string(_header.ncol) + "]");
+                }
+                
+                // Prepare result container
+                cells.resize(_header.nrow);
+
+                // Calculate block pos
+                uint32_t block_pos_x = column_index / _header.block_width; // Block's column index
+                uint32_t col_in_block = column_index % _header.block_width;  // Target column index inner block
+
+                // How many block in vertical direction
+                uint32_t block_max_x = (_header.ncol + _header.block_width - 1) / _header.block_width;
+                uint32_t block_max_y = (_header.nrow + _header.block_height - 1) / _header.block_height;
+
+                // Traverse all blocks in vertical direction
+                for (uint32_t block_pos_y = 0; block_pos_y < block_max_y; ++block_pos_y) {
+                    uint32_t block_idx = (uint32_t)block_pos_y * block_max_x + block_pos_x;
+                    
+                    // Read block
+                    this->read_block<T>(block_idx, compressed_buffer, block_buffer);
+
+                    // Calculate actual block size
+                    uint32_t actual_block_width = std::min(_header.block_width, _header.ncol - block_pos_x * _header.block_width);
+                    uint32_t actual_block_height = block_buffer.size() / actual_block_width;
+
+                    // Fetch target inner block col
+                    T* block_ptr = block_buffer.data() + col_in_block; // First row inner block, target column
+                    uint64_t cell_offset = (uint64_t)block_pos_y * _header.block_height; // Calculate cell offset in result cells
+
+                    for (uint32_t i = 0; i < actual_block_height; ++i) {
+                        cells[cell_offset + i] = *block_ptr;
+                        block_ptr += actual_block_width; // Jump to next row inner block
+                    }
+                }
+
+            }
+            template <typename T> void read_column(std::string column_name, std::vector<char>& compressed_buffer, std::vector<T>& block_buffer, std::vector<T>& cells) {
+                auto it = _column_map.find(column_name);
+                if (it == _column_map.end()) {
+                    throw std::invalid_argument("biomxt::BiomxtFile::read_column: column name [" + column_name + "] not found");
+                }
+                return read_column<T>(it->second, compressed_buffer, block_buffer, cells);
+            }
+
+            // template <typename T> bool read_sub_matrix(const std::vector<std::string>& row_names, const std::vector<std::string>& column_names, std::vector<T>& cells);
+            // template <typename T> bool read_sub_matrix(std::vector<uint32_t> row_indices, const std::vector<std::string>& column_names, std::vector<T>& cells);
+            // template <typename T> bool read_sub_matrix(const std::vector<std::string>& row_names, std::vector<uint32_t> column_indices, std::vector<T>& cells);
+            // template <typename T> bool read_sub_matrix(std::vector<uint32_t> row_indices, std::vector<uint32_t> column_indices, std::vector<T>& cells);
 
             /**
              * @brief Get row names
@@ -220,7 +343,7 @@ namespace biomxt {
              * @throws std::runtime_error If the file has been closed.
              * @throws std::runtime_error If any index is out of range.
              */
-            std::vector<std::string> get_row_names(const std::vector<uint64_t>& row_indices) const {
+            std::vector<std::string> get_row_names(const std::vector<uint32_t>& row_indices) const {
                 if (!_ifile.is_open()) {
                     throw std::runtime_error("File has been closed.");
                 }
@@ -229,7 +352,7 @@ namespace biomxt {
                 results.reserve(row_indices.size()); 
                 
                 // Fill
-                for (uint64_t idx : row_indices) {
+                for (uint32_t idx : row_indices) {
                     if (idx < _header.nrow) {
                         results.push_back(_row_names[idx]);
                     } else {
@@ -259,7 +382,7 @@ namespace biomxt {
              * @throws std::runtime_error If the file has been closed.
              * @throws std::runtime_error If any index is out of range.
              */
-            std::vector<std::string> get_column_names(const std::vector<uint64_t>& column_indices) const {
+            std::vector<std::string> get_column_names(const std::vector<uint32_t>& column_indices) const {
                 if (!_ifile.is_open()) {
                     throw std::runtime_error("File has been closed.");
                 }
@@ -268,7 +391,7 @@ namespace biomxt {
                 results.reserve(column_indices.size()); 
                 
                 // Fill
-                for (uint64_t idx : column_indices) {
+                for (uint32_t idx : column_indices) {
                     if (idx < _header.ncol) {
                         results.push_back(_column_names[idx]);
                     } else {
@@ -282,16 +405,16 @@ namespace biomxt {
              * @brief Get row indices for given names
              * 
              * @param row_names Row names
-             * @return std::vector<uint64_t> Row indices
+             * @return std::vector<uint32_t> Row indices
              * @throws std::runtime_error If the file has been closed.
              * @throws std::runtime_error If any name is not found.
              */
-            std::vector<uint64_t> get_row_indices(const std::vector<std::string>& row_names) const {
+            std::vector<uint32_t> get_row_indices(const std::vector<std::string>& row_names) const {
                 if (!_ifile.is_open()) {
                     throw std::runtime_error("File has been closed.");
                 }
 
-                std::vector<uint64_t> results;
+                std::vector<uint32_t> results;
                 // Reserve
                 results.reserve(row_names.size());
 
@@ -315,16 +438,16 @@ namespace biomxt {
              * @brief Get column indices for given names
              * 
              * @param column_names Column names
-             * @return std::vector<uint64_t> Column indices
+             * @return std::vector<uint32_t> Column indices
              * @throws std::runtime_error If the file has been closed.
              * @throws std::runtime_error If any name is not found.
              */
-            std::vector<uint64_t> get_column_indices(const std::vector<std::string>& column_names) const {
+            std::vector<uint32_t> get_column_indices(const std::vector<std::string>& column_names) const {
                 if (!_ifile.is_open()) {
                     throw std::runtime_error("File has been closed.");
                 }
                 // Reserve
-                std::vector<uint64_t> results;
+                std::vector<uint32_t> results;
                 results.reserve(column_names.size()); 
                 
                 // Fill
@@ -383,11 +506,10 @@ namespace biomxt {
             std::vector<biomxt::IndexEntry> _block_table;
             std::vector<std::string> _row_names;
             std::vector<std::string> _column_names;
-            std::unordered_map<std::string, uint64_t> _row_map;
-            std::unordered_map<std::string, uint64_t> _column_map;
+            std::unordered_map<std::string, uint32_t> _row_map;
+            std::unordered_map<std::string, uint32_t> _column_map;
             uint32_t _max_compressed_block_size = 0;
             uint32_t _max_uncompressed_block_size = 0;
-
 
             /**
              * @brief Close the file stream, clear data and release memory.
@@ -409,8 +531,8 @@ namespace biomxt {
                 _column_names.shrink_to_fit();
 
                 // Release memory of mapping of row and column names by swapping with empty maps
-                std::unordered_map<std::string, uint64_t>().swap(_row_map);
-                std::unordered_map<std::string, uint64_t>().swap(_column_map);
+                std::unordered_map<std::string, uint32_t>().swap(_row_map);
+                std::unordered_map<std::string, uint32_t>().swap(_column_map);
             }
     };
 }

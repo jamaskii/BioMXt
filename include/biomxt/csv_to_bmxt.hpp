@@ -20,11 +20,11 @@ namespace biomxt {
      * @param line A csv line to be parsed.
      * @param cells A vector to store parsed cells.
      * @param separator A char to be used as separator during parsing.
-     * @return uint64_t Count of cells obtained.
+     * @return uint32_t Count of cells obtained.
      * @throws std::invalid_argument If line contains unclosed quote.
      * @throws std::out_of_range If line contains too much cells, exceeds cells vector size.
      */
-    uint64_t csv_parse_line(
+    uint32_t csv_parse_line(
         const std::string& line, 
         std::vector<std::string>& cells,
         const char separator);
@@ -33,10 +33,10 @@ namespace biomxt {
      * @brief Parse a csv line, only return count of cells obtained.
      * @param line A csv line to be parsed.
      * @param separator A char to be used as separator during parsing.
-     * @return uint64_t Count of cells obtained.
+     * @return uint32_t Count of cells obtained.
      * @throws std::invalid_argument If line contains unclosed quote.
      */
-    uint64_t csv_parse_line(
+    uint32_t csv_parse_line(
         const std::string& line, 
         const char separator);
 
