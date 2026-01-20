@@ -156,9 +156,10 @@ namespace biomxt {
                 entry.raw_size = block.size()*sizeof(T);
 
                 // Compress
+                size_t dst_size = 0;
                 switch (algo) {
                     case biomxt::CompressAlgo::ZSTD:
-                        size_t dst_size = ZSTD_compressBound(entry.raw_size);
+                        dst_size = ZSTD_compressBound(entry.raw_size);
                         if (dst_size > compress_buffer.size()) {
                             compress_buffer.resize(dst_size);
                         }
@@ -320,9 +321,9 @@ namespace biomxt {
 
     }
 
-    // template biomxt::FileHeader csv_to_bmxt<int16_t>(const std::string&, const std::string&, uint32_t, uint32_t, char, CompressAlgo, std::vector<std::string>&);
-    // template biomxt::FileHeader csv_to_bmxt<int32_t>(const std::string&, const std::string&, uint32_t, uint32_t, char, CompressAlgo, std::vector<std::string>&);
-    // template biomxt::FileHeader csv_to_bmxt<int64_t>(const std::string&, const std::string&, uint32_t, uint32_t, char, CompressAlgo, std::vector<std::string>&);
-    // template biomxt::FileHeader csv_to_bmxt<float>(const std::string&, const std::string&, uint32_t, uint32_t, char, CompressAlgo, std::vector<std::string>&);
-    // template biomxt::FileHeader csv_to_bmxt<double>(const std::string&, const std::string&, uint32_t, uint32_t, char, CompressAlgo, std::vector<std::string>&);
+    template biomxt::FileHeader csv_to_bmxt<int16_t>(const std::string&, const std::string&, uint32_t, uint32_t, char, CompressAlgo, std::vector<std::string>&);
+    template biomxt::FileHeader csv_to_bmxt<int32_t>(const std::string&, const std::string&, uint32_t, uint32_t, char, CompressAlgo, std::vector<std::string>&);
+    template biomxt::FileHeader csv_to_bmxt<int64_t>(const std::string&, const std::string&, uint32_t, uint32_t, char, CompressAlgo, std::vector<std::string>&);
+    template biomxt::FileHeader csv_to_bmxt<float>(const std::string&, const std::string&, uint32_t, uint32_t, char, CompressAlgo, std::vector<std::string>&);
+    template biomxt::FileHeader csv_to_bmxt<double>(const std::string&, const std::string&, uint32_t, uint32_t, char, CompressAlgo, std::vector<std::string>&);
 }
