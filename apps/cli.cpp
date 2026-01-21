@@ -5,6 +5,7 @@
 #include <chrono>
 #include <iomanip>
 #include <chrono>
+#include <span>
 #include "zstd.h"
 #include "cli_app.hpp"
 #include "biomxt/spec.hpp"
@@ -211,16 +212,17 @@ int main(int argc, char *argv[])
             //     std::cout << rowname << std::endl;
             // }
 
-            std::vector<float> cells(header.block_width * header.block_height);
-            std::vector<char> compressed_buffer(bmxt.get_max_compressed_block_size());
-            std::vector<float> block_buffer(bmxt.get_header().ncol * header.block_height);
-            bmxt.read_column("AP1_AGAGAATCAGGTCAAG.1", compressed_buffer, block_buffer, cells);
+            // std::vector<char> buffer(header.block_width * header.block_height);
+            // bmxt.read_column_data("AP1_AGAGAATCAGGTCAAG.1", buffer);
+            // biomxt::Cells cells(buffer);
+            
+            
             
 
             // Print first 10 cells
-            for (size_t i=0; i<10; i++) {
-                std::cout << "Cell[" << i << "] = " << cells[i] << std::endl;
-            }
+            // for (size_t i=0; i<10; i++) {
+            //     std::cout << "Cell[" << i << "] = " << cells[i] << std::endl;
+            // }
 
             // uint64_t start_time = get_timestamp();
             // std::cout << "模拟22951次读取" << start_time << std::endl;
@@ -236,6 +238,14 @@ int main(int argc, char *argv[])
             // bmxt.read_chunk(0, cells);
             // std::cout << "模拟22951次读取耗时" << get_timestamp() - start_time << std::endl;
             
+            bmxt.read_row(0, [](auto cells) {
+                std::cout << "Cell index : 0" << std::endl;
+                std::cout << "Cell count: " << cells.size() << std::endl;
+                // Print first 10 cells
+                for (size_t i=0; i<10; i++) {
+                    std::cout << "Cell[" << i << "] = " << cells[i] << std::endl;
+                }
+            });
             
             bmxt.close();
         } catch (const std::exception& e) {

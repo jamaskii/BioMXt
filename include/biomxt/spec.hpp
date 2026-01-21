@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
 #include <iostream>
+#include <vector>
+#include "biomxt/uuid.hpp"
 
 
 #pragma pack(push, 1)
@@ -74,6 +76,17 @@ namespace biomxt {
         return DataType::UNKNOWN;
     }
 
+    inline uint32_t size_of_dtype(DataType dtype) {
+        switch (dtype) {
+            case INT16: return sizeof(int16_t);
+            case INT32: return sizeof(int32_t);
+            case INT64: return sizeof(int64_t);
+            case FLOAT32: return sizeof(float);
+            case FLOAT64: return sizeof(double);
+            default: return 0;
+        }
+    }
+
     /**
      * @brief Get data type enum from type. 从类型获取数据类型枚举.
      * @tparam T Type. 类型.
@@ -145,75 +158,39 @@ namespace biomxt {
     }
 
     /**
-     * @brief File header struct. 文件头结构体.
+     * @brief File header struct.
      */
     struct FileHeader {
-        /**
-         * @brief Magic number. 魔法数.
-         */
         char magic[4] = {'B', 'M', 'X', 't'};
 
-        /**
-         * @brief Version number. 版本号.
-         */
         uint16_t version = BIOMXT_FILE_VERSION;
 
-        /**
-         * @brief Data type. 数据类型.
-         */
         DataType dtype = DataType::FLOAT32;
 
-        /**
-         * @brief Compress algorithm. 压缩算法.
-         */
         CompressAlgo algo = CompressAlgo::ZSTD;
 
-        /**
-         * @brief Row counts. 行计数.
-         */
         uint32_t nrow;
 
-        /**
-         * @brief Column counts. 列计数.
-         */
         uint32_t ncol;
 
-        /**
-         * @brief Block width. 块宽度.
-         */
         uint32_t block_width;
 
-        /**
-         * @brief Block height. 块高度.
-         */
         uint32_t block_height;
 
-        /**
-         * @brief Block count. 块数量.
-         */
         uint32_t block_count;
 
         uint32_t padding1 = 0;
 
-        /**
-         * @brief Block table offset. 块表偏移.
-         */
         uint64_t block_table_offset;
 
-        /**
-         * @brief Name table offset. 名称表偏移.
-         */
         uint64_t name_table_offset;
 
-        /**
-         * @brief Padding. 填充.
-         */
-        uint8_t padding2[16] = {0};
+        UUID uuid;
     };
 
     /**
-     * @brief Print file header. 打印文件头.
-     * @param header File header. 文件头.
+     * @brief Print file header.
+     * @param header File header to be printed.
      */
     inline void print_bmxt_header(const biomxt::FileHeader& header) {
         std::cout << "Magic: \t\t\t" << std::string_view(header.magic, 4) << std::endl;
@@ -230,23 +207,52 @@ namespace biomxt {
     }
 
     /**
-     * @brief Index entry struct. 索引条目结构体.
+     * @brief Index entry struct.
      */
     struct IndexEntry {
         /**
-         * @brief Offset. 偏移量.
+         * @brief Offset.
          */
         uint64_t offset;
 
         /**
-         * @brief Size. 大小.
+         * @brief Size.
          */
         uint32_t size;
 
         /**
-         * @brief Uncompressed size. 未压缩大小.
+         * @brief Uncompressed size.
          */
         uint32_t raw_size;
+    };
+
+    template <typename T>
+    class Cells {
+    public:
+        // 构造函数：关联原始字节缓冲区
+        Cells(const std::vector<char>& raw_buffer) 
+            : _ptr(reinterpret_cast<const T*>(raw_buffer.data())),
+              _size(raw_buffer.size() / sizeof(T)) {}
+
+        // 像 vector 一样访问
+        const T& operator[](size_t index) const { return _ptr[index]; }
+        const T& at(size_t index) const {
+            if (index >= _size) throw std::out_of_range("Cells index out of range");
+            return _ptr[index];
+        }
+
+        // 迭代器支持 (这样就能用 for(auto x : cells) 了)
+        const T* begin() const { return _ptr; }
+        const T* end() const { return _ptr + _size; }
+
+        // 基础信息
+        size_t size() const { return _size; }
+        bool empty() const { return _size == 0; }
+        const T* data() const { return _ptr; }
+
+    private:
+        const T* _ptr;
+        size_t _size;
     };
 
 }

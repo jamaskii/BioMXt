@@ -206,6 +206,7 @@ namespace biomxt {
             header.algo = algo;
             header.block_width = block_width;
             header.block_height = block_height;
+            header.uuid = biomxt::UUID::generate();
 
             // Create output file
             std::ofstream out_file(output_file, std::ios::binary);

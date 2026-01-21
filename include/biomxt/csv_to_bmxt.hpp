@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <fstream>
 #include "biomxt/spec.hpp"
+#include "biomxt/uuid.hpp"
 #include "zstd.h"
 #include "zstd_errors.h"
 

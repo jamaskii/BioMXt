@@ -44,8 +44,12 @@ TEST_ZSTD_TARGET = bin/test_zstd$(EXE_EXT)
 TEST_CONV_SRC = tests/test_conv.cpp
 TEST_CONV_TARGET = bin/test_conv$(EXE_EXT)
 
+# cache test
+TEST_CACHE_SRC = tests/test_cache.cpp
+TEST_CACHE_TARGET = bin/test_cache$(EXE_EXT)
+
 #### Task rules ####
-.PHONY: all cli test_csv test_zstd test_conv clean
+.PHONY: all cli test_csv test_zstd test_conv test_cache clean
 all: $(LIB_TARGET) $(CLI_TARGET)
 
 # Using $(MKDIR) variable to ensure cross-platform compatibility
@@ -78,6 +82,13 @@ test_conv: $(LIB_TARGET)
 	$(CXX) $(CXXFLAGS) $(TEST_CONV_SRC) $(LIB_TARGET) -o $(TEST_CONV_TARGET) $(LDFLAGS)
 	@echo --- Running Conv Tests ---
 	@./$(TEST_CONV_TARGET)
+
+test_cache: $(LIB_TARGET)
+	@$(call MKDIR, bin)
+	$(CXX) $(CXXFLAGS) $(TEST_CACHE_SRC) $(LIB_TARGET) -o $(TEST_CACHE_TARGET) $(LDFLAGS)
+	@echo --- Running Cache Tests ---
+	@./$(TEST_CACHE_TARGET)
+
 
 clean:
 	@$(call RM, build)
