@@ -3,13 +3,14 @@
 #include <fstream>
 #include <vector>
 #include <chrono>
-#include "biomxt/spec.hpp"
-#include "biomxt/cache.hpp"
 #include "zstd.h"
 #include <functional>
 #include <typeinfo>
 #include <algorithm>
 #include <list>
+#include "biomxt/biomxt_types.hpp"
+#include "biomxt/internel/cache/block_cache.hpp"
+#include "biomxt/internel/struct/cells.hpp"
 
 
 namespace biomxt {
@@ -203,7 +204,7 @@ namespace biomxt {
                 // Decompress
                 size_t decompressed_size = 0;
                 switch (_header.algo) {
-                    case biomxt::CompressAlgo::ZSTD:
+                    case biomxt::CompressAlgorithm::ZSTD:
                         decompressed_size = ZSTD_decompress(
                             buffer.data(),                  // target addr
                             block_index.raw_size,           // target size

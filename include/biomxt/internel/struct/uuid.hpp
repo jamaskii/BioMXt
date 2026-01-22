@@ -7,10 +7,17 @@
 
 
 namespace biomxt {
+
+    /**
+     * @brief Universally Unique Identifier (UUID) version 4.
+     */
     struct UUID {
         uint8_t data[16];
 
-        // Randomly generate a UUID (Version 4)
+        /**
+         * @brief Randomly generate a UUID (Version 4).
+         * @return `biomxt::UUID` The generated UUID.
+         */
         static UUID generate() {
             UUID uuid;
             // Use hardware random number generator as seed

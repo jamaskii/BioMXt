@@ -1,0 +1,95 @@
+#### Compiler and flags ####
+CXX      = g++
+CXXFLAGS = -O3 -std=c++17 -Iinclude -MMD -MP
+
+#### System type detection ####
+ifeq ($(OS),Windows_NT)
+    RM = if exist $(1) rmdir /s /q $(1)
+    EXE_EXT = .exe
+    MKDIR = if not exist $(1) mkdir $(1)
+    CXXFLAGS += -Ithird_party/zstd/include
+    LDFLAGS  = -Lthird_party/zstd/lib -lzstd
+else
+    RM = rm -rf $(1)
+    EXE_EXT =
+    MKDIR = mkdir -p $(1)
+    LDFLAGS  = -lzstd
+endif
+
+#### Directory Structure ####
+SRC_DIR   = src
+BUILD_DIR = build
+BIN_DIR   = bin
+LIB_DIR   = lib
+DIST_DIR  = dist
+
+#### Source and Objects ####
+# 使用 rwildcard 或 shell find 以支持 src 目录下的子文件夹 (如 src/utils)
+SRCS      = $(shell find $(SRC_DIR) -name "*.cpp")
+OBJS      = $(patsubst $(SRC_DIR)/%.cpp, $(BUILD_DIR)/%.o, $(SRCS))
+DEPS      = $(OBJS:.o=.d)
+
+# 库目标
+LIB_TARGET = $(LIB_DIR)/libbiomxt.a
+
+# 自动获取所有测试文件
+TEST_SRCS = $(wildcard tests/*.cpp)
+TEST_BINS = $(patsubst tests/%.cpp, $(BIN_DIR)/%$(EXE_EXT), $(TEST_SRCS))
+
+# CLI 应用
+CLI_SRC    = apps/cli.cpp
+CLI_TARGET = $(BIN_DIR)/biomxt$(EXE_EXT)
+
+#### Task rules ####
+.PHONY: all cli tests lib clean dist
+
+all: lib cli
+
+# 编译静态库
+lib: $(LIB_TARGET)
+
+$(LIB_TARGET): $(OBJS)
+	@$(call MKDIR, $(LIB_DIR))
+	ar rcs $@ $(OBJS)
+
+# 编译主程序
+cli: $(CLI_TARGET)
+
+$(CLI_TARGET): $(CLI_SRC) $(LIB_TARGET)
+	@$(call MKDIR, $(BIN_DIR))
+	$(CXX) $(CXXFLAGS) $< $(LIB_TARGET) -o $@ $(LDFLAGS)
+
+# 批量编译并运行测试
+tests: $(TEST_BINS)
+	@for test in $(TEST_BINS); do \
+		echo "--- Running $$test ---"; \
+		./$$test; \
+	done
+
+$(BIN_DIR)/%$(EXE_EXT): tests/%.cpp $(LIB_TARGET)
+	@$(call MKDIR, $(BIN_DIR))
+	$(CXX) $(CXXFLAGS) $< $(LIB_TARGET) -o $@ $(LDFLAGS)
+
+# 编译对象文件 (自动处理多级子目录)
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@$(call MKDIR, $(dir $@))
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# 发布包：仅提取公开头文件和库
+dist: lib
+	@$(call RM, $(DIST_DIR))
+	@$(call MKDIR, $(DIST_DIR)/include/biomxt)
+	@$(call MKDIR, $(DIST_DIR)/lib)
+	cp include/biomxt/biomxt_file.hpp $(DIST_DIR)/include/biomxt/
+	cp include/biomxt/biomxt_converter.hpp $(DIST_DIR)/include/biomxt/
+	cp include/biomxt/biomxt_types.hpp $(DIST_DIR)/include/biomxt/
+	cp $(LIB_TARGET) $(DIST_DIR)/lib/
+	@echo "--- Dist folder created with public headers and library ---"
+
+clean:
+	@$(call RM, $(BUILD_DIR))
+	@$(call RM, $(BIN_DIR))
+	@$(call RM, $(LIB_DIR))
+	@$(call RM, $(DIST_DIR))
+
+-include $(DEPS)

@@ -1,4 +1,3 @@
-#include <iostream>
 #include <string>
 #include <vector>
 #include <filesystem>
@@ -8,9 +7,9 @@
 #include <span>
 #include "zstd.h"
 #include "cli_app.hpp"
-#include "biomxt/spec.hpp"
-#include "biomxt/csv_to_bmxt.hpp"
+#include "biomxt/biomxt_types.hpp"
 #include "biomxt/biomxt_file.hpp"
+#include "biomxt/biomxt_converter.hpp"
 
 
 namespace fs = std::filesystem;
@@ -22,7 +21,7 @@ uint64_t get_timestamp() {
 
 
 // 核心转换逻辑封装
-bool convert_csv_bmxt(std::string input, std::string output, uint32_t block_width, uint32_t block_height, char sep, const biomxt::DataType dtype, biomxt::CompressAlgo algo)
+bool convert_csv_bmxt(std::string input, std::string output, uint32_t block_width, uint32_t block_height, char sep, const biomxt::DataType dtype, biomxt::CompressAlgorithm algo)
 {
     // Print params
     std::cout << "---- Conversion Parameters ----" << std::endl;
@@ -176,7 +175,7 @@ int main(int argc, char *argv[])
         }
 
         // Confirm compression algorithm
-        biomxt::CompressAlgo algo = biomxt::CompressAlgo::ZSTD;
+        biomxt::CompressAlgorithm algo = biomxt::CompressAlgorithm::ZSTD;
         cliapp::Option algo_opt = bmxt.find_option("--algorithm", "-a");
         if (algo_opt.is_provided()) {
             algo = biomxt::algo_from_string(algo_opt.get_value());

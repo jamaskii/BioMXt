@@ -2,9 +2,7 @@
 #include <fstream>
 #include <vector>
 #include <chrono>
-#include "biomxt/csv_to_bmxt.hpp"
-#include "biomxt/spec.hpp"
-#include "zstd.h"
+#include "biomxt/biomxt_converter.hpp"
 
 
 #define ARG_INPUT_FILE              "test_data/PRJNA978570_RNA_data.csv"
@@ -14,7 +12,7 @@
 #define ARG_BLOCK_HEIGHT            512
 #define ARG_SEPARATOR               ','
 #define ARG_DTYPE                   biomxt::DataType::FLOAT32
-#define ARG_ALGO                    biomxt::CompressAlgo::ZSTD
+#define ARG_ALGO                    biomxt::CompressAlgorithm::ZSTD
 #define TEST_EPOCHES                3
 
 

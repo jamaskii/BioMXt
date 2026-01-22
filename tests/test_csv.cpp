@@ -1,11 +1,12 @@
 #include <iostream>
 #include <cassert>
-#include "biomxt/csv_parser.hpp"
+#include "biomxt/internel/utils/csv_parser.hpp"
 
 
 void parse_and_show(const std::string& line, char separation = ',') {
-    uint64_t reserve_size = 0;
-    std::vector<std::string> cells = biomxt::parse_line(line, reserve_size, separation);
+    size_t count = biomxt::csv_parse_line(line, separation);
+    std::vector<std::string> cells(count);
+    biomxt::csv_parse_line(line, cells, separation);
     std::cout << "Line: [" << line << "]" << std::endl;
     std::cout << "Parsed Cells Count: " << cells.size() << std::endl;
     for(size_t i=0; i<cells.size(); ++i) {

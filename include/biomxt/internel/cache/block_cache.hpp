@@ -2,106 +2,14 @@
 #include <cstdint>
 #include <vector>
 #include <shared_mutex>
+#include <mutex>
 #include <list>
 #include <unordered_map>
 #include <iostream>
-#include "biomxt/uuid.hpp"
+#include "biomxt/internel/cache/cache_entry.hpp"
 
 
 namespace biomxt {
-    class BlockKey {
-        private:
-        uint32_t _block_index;
-        biomxt::UUID _uuid;
-
-        public:
-        /**
-         * @brief Construct a new Block Key object.
-         * 
-         * @param block_index The block index.
-         * @param uuid The block UUID.
-         */
-        BlockKey(uint32_t block_index, const biomxt::UUID& uuid)
-            : _block_index(block_index), _uuid(uuid) {}
-
-        bool operator==(const BlockKey& other) const {
-            return _block_index == other._block_index && _uuid == other._uuid;
-        }
-
-        uint32_t block_index() const {
-            return _block_index;
-        }
-
-        const biomxt::UUID& uuid() const {
-            return _uuid;
-        }
-    };
-
-    struct BlockKeyHash {
-        std::size_t operator()(const BlockKey& k) const {
-            // 分别取出 UUID 的高 64 位和低 64 位
-            uint64_t h1, h2;
-            std::memcpy(&h1, k.uuid().data, 8);
-            std::memcpy(&h2, k.uuid().data + 8, 8);
-
-            // 使用经典的 Hash Combine 算法将 UUID 和 block_index 融合
-            // 这样可以确保 UUID 的每一位变化都会导致哈希值大幅变动
-            std::size_t seed = std::hash<uint64_t>{}(h1);
-            seed ^= std::hash<uint64_t>{}(h2) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            seed ^= std::hash<uint32_t>{}(k.block_index()) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            
-            return seed;
-        }
-    };
-
-    class CacheEntry {
-        private:
-        BlockKey _key;
-        std::vector<char> _data;
-
-        public:
-        /**
-         * @brief Construct a new Cache Entry object.
-         * 
-         * @param key The block key.
-         * @param data The block data.
-         * @note The data param used as right-value, will be moved into the cache entry.
-         */
-        CacheEntry(BlockKey key, std::vector<char>&& data)
-            : _key(key), _data(std::move(data)) {}
-
-        /**
-         * @brief Get the data of the cache entry.
-         * 
-         * @return const std::vector<char>& The block data.
-         */
-        const std::vector<char>& data() const {
-            return _data;
-        }
-
-        /**
-         * @brief Get the key of the cache entry.
-         * 
-         * @return const BlockKey& The block key.
-         */
-        const BlockKey& key() const {
-            return _key;
-        }
-
-        /**
-         * @brief Get the size of the cache entry.
-         * 
-         * @return size_t The size of the cache entry in bytes.
-         */
-        size_t size() const {
-            return sizeof(BlockKey) + _data.capacity();
-        }
-
-        bool operator==(const CacheEntry& other) const {
-            return _key == other._key && _data == other._data;
-        }
-    };
-
     class BlockCache {
         private:
             mutable std::shared_mutex _mutex;
@@ -243,6 +151,4 @@ namespace biomxt {
                 }
             }
     };
-
-
 }
