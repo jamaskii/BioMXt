@@ -7,7 +7,6 @@
 #include <span>
 #include "zstd.h"
 #include "cli_app.hpp"
-#include "biomxt/biomxt_types.hpp"
 #include "biomxt/biomxt_file.hpp"
 #include "biomxt/biomxt_converter.hpp"
 
