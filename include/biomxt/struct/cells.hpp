@@ -6,7 +6,7 @@
 namespace biomxt
 {
     template <typename T>
-    class Cells {
+    struct Cells {
         public:
             // Constructor
             Cells(const std::vector<char>& raw_buffer) 

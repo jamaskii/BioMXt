@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <vector>
-#include "biomxt/internel/struct/uuid.hpp"
+#include "../struct/uuid.hpp"
 
 
 namespace biomxt {

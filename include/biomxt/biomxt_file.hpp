@@ -8,12 +8,14 @@
 #include <typeinfo>
 #include <algorithm>
 #include <list>
-#include "biomxt/biomxt_types.hpp"
-#include "biomxt/internel/cache/block_cache.hpp"
-#include "biomxt/internel/struct/cells.hpp"
+#include "./cache/block_cache.hpp"
+#include "./struct/cells.hpp"
 
 
 namespace biomxt {
+    class BlockCache;
+    struct FileHeader;
+    
     class BiomxtFile {
         public:
             /**

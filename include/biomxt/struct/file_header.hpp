@@ -1,9 +1,9 @@
 #pragma once
 #include <cstdint>
 #include <iostream>
-#include "biomxt/internel/struct/data_type.hpp"
-#include "biomxt/internel/struct/uuid.hpp"
-#include "biomxt/internel/struct/compress_algorithm.hpp"
+#include "./data_type.hpp"
+#include "./uuid.hpp"
+#include "./compress_algorithm.hpp"
 
 
 #pragma pack(push, 1)

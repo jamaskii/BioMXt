@@ -10,7 +10,7 @@
 #include <fstream>
 #include "zstd.h"
 #include "zstd_errors.h"
-#include "biomxt/internel/struct/data_type.hpp"
+#include "../struct/data_type.hpp"
 
 
 namespace biomxt {

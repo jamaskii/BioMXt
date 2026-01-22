@@ -6,7 +6,7 @@
 #include <list>
 #include <unordered_map>
 #include <iostream>
-#include "biomxt/internel/cache/cache_entry.hpp"
+#include "./cache_entry.hpp"
 
 
 namespace biomxt {

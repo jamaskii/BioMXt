@@ -4,8 +4,10 @@
 #include <fstream>
 #include "zstd.h"
 #include "zstd_errors.h"
-#include "biomxt/biomxt_types.hpp"
-#include "biomxt/internel/utils/csv_parser.hpp"
+#include "biomxt/utils/csv_parser.hpp"
+#include "biomxt/struct/index_entry.hpp"
+#include "biomxt/struct/compress_algorithm.hpp"
+#include "biomxt/struct/file_header.hpp"
 
 
 namespace biomxt
