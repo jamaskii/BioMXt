@@ -8,6 +8,7 @@
 #include <typeinfo>
 #include <algorithm>
 #include <list>
+#include <memory>
 #include "./cache/block_cache.hpp"
 #include "./struct/cells.hpp"
 #include "./struct/file_header.hpp"
